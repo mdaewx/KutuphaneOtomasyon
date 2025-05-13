@@ -1,0 +1,47 @@
+<IfModule mod_rewrite.c>
+    <IfModule mod_negotiation.c>
+        Options -MultiViews -Indexes
+    </IfModule>
+
+    RewriteEngine On
+
+    # Resim dosyalarına erişim için özel kurallar
+    # Bu resimlerin direkt erişilebilir olmasını sağlar
+    <FilesMatch "\.(jpg|jpeg|png|gif)$">
+        # Önbellek süresi kısa tutulmalı (kullanıcı için)
+        Header set Cache-Control "max-age=0, must-revalidate, public"
+    </FilesMatch>
+
+    # Handle Authorization Header
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Handle X-XSRF-Token Header
+    RewriteCond %{HTTP:x-xsrf-token} .
+    RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
+
+    # Redirect Trailing Slashes If Not A Folder...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+
+    # Send Requests To Front Controller...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
+
+    # Resim dosyalarına erişime izin ver
+    <IfModule mod_headers.c>
+        <FilesMatch "\.(jpg|jpeg|png|gif)$">
+            Header set Access-Control-Allow-Origin "*"
+            Header set X-Content-Type-Options "nosniff"
+        </FilesMatch>
+    </IfModule>
+</IfModule>
+
+# Resimlerin MIME türlerini düzgün ayarlayalım
+<IfModule mod_mime.c>
+    AddType image/jpeg .jpg .jpeg
+    AddType image/png .png
+    AddType image/gif .gif
+</IfModule>

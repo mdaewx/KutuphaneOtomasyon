@@ -153,19 +153,77 @@ $(document).ready(function() {
         dropdownAutoWidth: true
     });
     
-    // Son tarih kontrolü
+    // Son tarih kontrolü - 30 gün maksimum kısıtlaması
     $('#borrow_date, #due_date').on('change', function() {
         var borrowDate = new Date($('#borrow_date').val());
         var dueDate = new Date($('#due_date').val());
         
+        // Format dates for comparison
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // Maksimum 30 gün kuralı
+        var maxDueDate = new Date(borrowDate);
+        maxDueDate.setDate(maxDueDate.getDate() + 30);
+        
+        // Ensure borrow date is not in the past
+        if (borrowDate < today) {
+            alert('Ödünç alma tarihi geçmiş bir tarih olamaz.');
+            $('#borrow_date').val(formatDate(today));
+            borrowDate = today;
+            
+            // Recalculate max due date
+            maxDueDate = new Date(today);
+            maxDueDate.setDate(maxDueDate.getDate() + 30);
+        }
+        
+        // Ensure due date is after borrow date
         if (dueDate <= borrowDate) {
             alert('Son iade tarihi, ödünç alma tarihinden sonra olmalıdır.');
             // 15 gün sonrasını hesapla
-            borrowDate.setDate(borrowDate.getDate() + 15);
-            var newDueDate = borrowDate.toISOString().split('T')[0];
-            $('#due_date').val(newDueDate);
+            var newDueDate = new Date(borrowDate);
+            newDueDate.setDate(newDueDate.getDate() + 15);
+            $('#due_date').val(formatDate(newDueDate));
+            dueDate = newDueDate;
+        }
+        
+        // Ensure due date is not more than 30 days after borrow date
+        if (dueDate > maxDueDate) {
+            alert('Son iade tarihi, ödünç alma tarihinden en fazla 30 gün sonra olabilir.');
+            $('#due_date').val(formatDate(maxDueDate));
         }
     });
+    
+    // Set max attribute for due_date based on borrow_date
+    $('#borrow_date').on('change', function() {
+        var borrowDate = new Date($(this).val());
+        var maxDueDate = new Date(borrowDate);
+        maxDueDate.setDate(maxDueDate.getDate() + 30);
+        
+        // Set max attribute for due_date
+        $('#due_date').attr('max', formatDate(maxDueDate));
+    });
+    
+    // Initialize max attribute on page load
+    var borrowDate = new Date($('#borrow_date').val());
+    var maxDueDate = new Date(borrowDate);
+    maxDueDate.setDate(maxDueDate.getDate() + 30);
+    $('#due_date').attr('max', formatDate(maxDueDate));
+    
+    // Tarih formatlama yardımcı fonksiyonu
+    function formatDate(date) {
+        var d = new Date(date),
+            month = '' + (d.getMonth() + 1),
+            day = '' + d.getDate(),
+            year = d.getFullYear();
+    
+        if (month.length < 2) 
+            month = '0' + month;
+        if (day.length < 2) 
+            day = '0' + day;
+    
+        return [year, month, day].join('-');
+    }
 });
 </script>
 @endpush 

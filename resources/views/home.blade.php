@@ -345,8 +345,10 @@
                     <div class="col-md-6 col-lg-4">
                         <div class="book-card">
                             <span class="book-category">{{ $book->category->name ?? 'Genel' }}</span>
-                            <img src="{{ $book->cover_image ? asset('storage/covers/' . $book->cover_image) : asset('images/no-cover.png') }}" 
-                                 class="book-image w-100" alt="{{ $book->title }}">
+                            <div class="text-center p-3">
+                                <img src="{{ asset('images/icons/book-logo.png') }}" 
+                                     alt="{{ $book->title }}" class="img-fluid" style="width: 150px; height: auto;">
+                            </div>
                         <div class="card-body">
                                 <h5 class="card-title">{{ $book->title }}</h5>
                                 <p class="card-text text-muted">{{ $book->author }}</p>
@@ -375,8 +377,10 @@
                     <div class="col-md-6 col-lg-4">
                         <div class="book-card">
                             <span class="book-category">{{ $book->category->name ?? 'Genel' }}</span>
-                            <img src="{{ $book->cover_image ? asset('storage/covers/' . $book->cover_image) : asset('images/no-cover.png') }}" 
-                                 class="book-image w-100" alt="{{ $book->title }}">
+                            <div class="text-center p-3">
+                                <img src="{{ asset('images/icons/book-logo.png') }}" 
+                                     alt="{{ $book->title }}" class="img-fluid" style="width: 150px; height: auto;">
+                            </div>
                         <div class="card-body">
                                 <h5 class="card-title">{{ $book->title }}</h5>
                                 <p class="card-text text-muted">{{ $book->author }}</p>

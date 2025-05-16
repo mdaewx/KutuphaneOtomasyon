@@ -151,21 +151,16 @@
                     </div>
 
                     <div class="col-md-4">
-                        <div class="form-group">
-                            <label for="cover_image">Kapak Resmi</label>
-                            <div class="custom-file">
-                                <input type="file" class="custom-file-input @error('cover_image') is-invalid @enderror" 
-                                    id="cover_image" name="cover_image" accept="image/*">
-                                <label class="custom-file-label" for="cover_image">Dosya seçin...</label>
-                                @error('cover_image')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h6 class="m-0 font-weight-bold text-primary">Kitap Görseli</h6>
                             </div>
-                            <small class="form-text text-muted">Önerilen boyut: 300x450 piksel</small>
-                        </div>
-
-                        <div class="mt-3">
-                            <img id="cover_preview" src="#" alt="Kapak önizleme" class="img-fluid d-none">
+                            <div class="card-body text-center">
+                                <img src="{{ asset('images/icons/book-logo.png') }}" alt="Kitap Logo" class="img-fluid" style="width: 200px; height: auto;">
+                                <div class="mt-3">
+                                    <p class="text-muted small">Tüm kitaplar için standart logo kullanılmaktadır.</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

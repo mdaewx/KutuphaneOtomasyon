@@ -12,9 +12,11 @@ class Fine extends Model
     protected $fillable = [
         'user_id',
         'book_id',
+        'borrowing_id',
         'days_late',
         'fine_amount',
-        'paid'
+        'paid',
+        'paid_at'
     ];
 
     /**
@@ -31,5 +33,13 @@ class Fine extends Model
     public function book()
     {
         return $this->belongsTo(Book::class);
+    }
+
+    /**
+     * Bu cezanın ait olduğu ödünç kaydı
+     */
+    public function borrowing()
+    {
+        return $this->belongsTo(Borrowing::class);
     }
 }

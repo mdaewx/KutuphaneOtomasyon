@@ -67,7 +67,6 @@ class BookController extends Controller
             'language' => 'required|string|max:50',
             'publication_year' => 'required|integer|min:1800|max:' . date('Y'),
             'description' => 'nullable|string',
-            'cover_image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'author_id' => 'required|exists:authors,id',
             'stock_quantity' => 'nullable|integer|min:1',
         ]);
@@ -83,15 +82,6 @@ class BookController extends Controller
             'publication_year' => $validatedData['publication_year'],
             'description' => $validatedData['description'],
         ]);
-
-        // Handle cover image upload
-        if ($request->hasFile('cover_image')) {
-            $image = $request->file('cover_image');
-            $filename = time() . '.' . $image->getClientOriginalExtension();
-            $image->storeAs('public/covers', $filename);
-            $book->cover_image = $filename;
-            $book->save();
-        }
 
         // Attach author
         $book->authors()->attach($validatedData['author_id']);
@@ -141,7 +131,6 @@ class BookController extends Controller
             'language' => 'required|string|max:50',
             'publication_year' => 'required|integer|min:1800|max:' . date('Y'),
             'description' => 'nullable|string',
-            'cover_image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'author_id' => 'required|exists:authors,id',
         ]);
         
@@ -156,20 +145,6 @@ class BookController extends Controller
             'publication_year' => $validatedData['publication_year'],
             'description' => $validatedData['description'],
         ]);
-        
-        // Handle cover image upload
-        if ($request->hasFile('cover_image')) {
-            // Delete old cover image if exists
-            if ($book->cover_image) {
-                \Storage::delete('public/covers/' . $book->cover_image);
-            }
-            
-            $image = $request->file('cover_image');
-            $filename = time() . '.' . $image->getClientOriginalExtension();
-            $image->storeAs('public/covers', $filename);
-            $book->cover_image = $filename;
-            $book->save();
-        }
         
         // Sync author (removes old associations and adds new one)
         $book->authors()->sync([$validatedData['author_id']]);
@@ -214,13 +189,6 @@ class BookController extends Controller
             }
 
             \Log::info('Book found', ['id' => $book->id, 'title' => $book->title]);
-
-            // Format cover image URL if exists
-            $coverImageUrl = null;
-            if ($book->cover_image) {
-                $coverImageUrl = asset('storage/covers/' . $book->cover_image);
-                $book->cover_image = $coverImageUrl;
-            }
             
             // Return comprehensive book data
             return response()->json([
@@ -267,11 +235,6 @@ class BookController extends Controller
                     'error' => 'Kitap bulunamadı. (ISBN: ' . $isbn . ')',
                     'isbn' => $isbn
                 ]);
-            }
-            
-            // Format cover image URL if exists
-            if ($book->cover_image) {
-                $book->cover_image_url = asset('storage/covers/' . $book->cover_image);
             }
             
             // Prepare author names

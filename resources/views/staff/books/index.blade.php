@@ -111,7 +111,7 @@
                             <td>{{ $book->title }}</td>
                             <td>
                                 @if($book->authors->count() > 0)
-                                    {{ $book->authors->pluck('name')->join(', ') }}
+                                    {{ $book->authors->pluck('full_name')->join(', ') }}
                                 @else
                                     -
                                 @endif

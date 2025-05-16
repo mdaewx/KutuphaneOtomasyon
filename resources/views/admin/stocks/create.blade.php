@@ -218,11 +218,8 @@ $(document).ready(function() {
                         $('#barcode').val(isbn + '-' + timestamp);
                     }
                     
-                    if (book.cover_image) {
-                        $('#bookCover').attr('src', book.cover_image).removeClass('d-none');
-                    } else {
-                        $('#bookCover').addClass('d-none');
-                    }
+                    // Kitap kapağı için standart logo kullan
+                    $('#bookCover').attr('src', '{{ asset('images/icons/book-logo.png') }}').removeClass('d-none');
                     
                     $('#bookDetails').removeClass('d-none');
                 } else {

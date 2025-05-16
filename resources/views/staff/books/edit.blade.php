@@ -143,19 +143,11 @@
                 <div class="row mb-3">
                     <div class="col-md-12">
                         <div class="form-group">
-                            <label for="cover_image">Kapak Resmi</label>
-                            <div class="input-group">
-                                <input type="file" class="form-control @error('cover_image') is-invalid @enderror" id="cover_image" name="cover_image">
+                            <label>Kitap Görseli</label>
+                            <div class="text-center mt-2">
+                                <img src="{{ asset('images/icons/book-logo.png') }}" alt="Kitap Logo" class="img-fluid" style="width: 200px; height: auto;">
+                                <p class="text-muted small mt-2">Tüm kitaplar için standart logo kullanılmaktadır.</p>
                             </div>
-                            @if($book->cover_image)
-                                <div class="mt-2">
-                                    <img src="{{ asset('storage/covers/' . $book->cover_image) }}" alt="{{ $book->title }}" class="img-thumbnail" style="max-height: 100px;">
-                                </div>
-                            @endif
-                            <small class="form-text text-muted">Yeni bir kapak resmi yüklerseniz, eski resim değiştirilecektir.</small>
-                            @error('cover_image')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
                         </div>
                     </div>
                 </div>
@@ -189,18 +181,6 @@ $(document).ready(function() {
     $('#category_id, #publisher_id, #author_id, #language, #publication_year').select2({
         placeholder: 'Seçiniz',
         allowClear: true
-    });
-    
-    // Kapak resmi önizleme
-    $('#cover_image').change(function() {
-        const file = this.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                $('#cover_preview').attr('src', e.target.result).removeClass('d-none');
-            }
-            reader.readAsDataURL(file);
-        }
     });
 });
 </script>

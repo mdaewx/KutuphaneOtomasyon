@@ -157,8 +157,8 @@
         <div class="book-details">
             <div class="row">
                 <div class="col-md-4 text-center mb-4 mb-md-0">
-                    <img src="{{ $book->cover_image ? asset('storage/covers/' . $book->cover_image) : asset('img/no-cover.png') }}" 
-                         alt="{{ $book->title }}" class="book-cover img-fluid">
+                    <img src="{{ asset('images/icons/book-logo.png') }}" 
+                         alt="{{ $book->title }}" class="book-cover img-fluid" style="width: 200px; height: auto; margin: 0 auto; display: block;">
                 </div>
                 <div class="col-md-8 book-info">
                     <h1>{{ $book->title }}</h1>

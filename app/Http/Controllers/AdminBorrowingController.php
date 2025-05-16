@@ -86,6 +86,7 @@ class AdminBorrowingController extends Controller
         $borrowing->due_date = $validated['due_date'];
         $borrowing->notes = $validated['notes'] ?? null;
         $borrowing->status = $request->has('auto_approve') ? 'approved' : 'pending';
+        $borrowing->borrowed_at = now();
         $borrowing->save();
 
         // Eğer otomatik onaylandıysa kitap stokunu azalt

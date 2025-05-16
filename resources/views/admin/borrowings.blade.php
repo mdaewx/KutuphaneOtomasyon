@@ -55,6 +55,33 @@
     .modal-backdrop {
         z-index: 1040;
     }
+    
+    /* Search results styling */
+    #searchResults {
+        max-height: 300px;
+        overflow-y: auto;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        border-radius: 4px;
+        position: absolute;
+        width: 100%;
+        z-index: 1000;
+        background: white;
+    }
+    
+    #searchResults .list-group-item-action:hover {
+        background-color: #f8f9fa;
+    }
+    
+    #selectedBook {
+        border: 1px solid #d1e7dd;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .search-highlight {
+        background-color: #ffff99;
+        font-weight: bold;
+    }
 </style>
 @endsection
 
@@ -96,9 +123,16 @@
                             <small class="text-muted">{{ $borrowing->user->email }}</small>
                         </td>
                         <td>
-                            <strong>{{ $borrowing->book->title }}</strong><br>
-                            <small class="text-muted">Yazar: {{ $borrowing->book->author }}</small><br>
-                            <small class="text-muted">ISBN: {{ $borrowing->book->isbn }}</small>
+                            <div class="d-flex align-items-center">
+                                <div class="book-logo me-2">
+                                    <img src="{{ asset('images/icons/book-logo.png') }}" alt="Kitap" style="width: 40px; height: auto;">
+                                </div>
+                                <div>
+                                    <strong>{{ $borrowing->book->title }}</strong><br>
+                                    <small class="text-muted">Yazar: {{ $borrowing->book->authors->implode('full_name', ', ') }}</small><br>
+                                    <small class="text-muted">ISBN: {{ $borrowing->book->isbn }}</small>
+                                </div>
+                            </div>
                         </td>
                         <td>{{ $borrowing->borrow_date ? date('d.m.Y', strtotime($borrowing->borrow_date)) : '-' }}</td>
                         <td>{{ $borrowing->returned_at ? date('d.m.Y', strtotime($borrowing->returned_at)) : '-' }}</td>
@@ -211,15 +245,48 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label for="book_id" class="form-label">Kitap <span class="text-danger">*</span></label>
-                        <select class="form-select" id="book_id" name="book_id" required>
-                            <option value="">Kitap Seçin</option>
-                            @foreach($books as $book)
-                                <option value="{{ $book->id }}" {{ $book->quantity <= 0 ? 'disabled' : '' }}>
-                                    {{ $book->title }} | {{ $book->author }} | ISBN: {{ $book->isbn }} {{ $book->quantity <= 0 ? '(Stokta Yok)' : '(Stok: ' . $book->quantity . ')' }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <label for="book_search" class="form-label">Kitap <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="book_search" placeholder="Kitap adı, yazar veya ISBN'e göre arama yapın...">
+                            <button class="btn btn-outline-secondary" type="button" id="clearBookSearch">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <small class="text-muted">En az 2 karakter girerek arama yapabilirsiniz</small>
+                        
+                        <!-- Hidden input to store selected book ID -->
+                        <input type="hidden" id="book_id" name="book_id" required>
+                        
+                        <div id="searchResults" class="list-group mt-2 d-none">
+                            <!-- Search results will be populated here -->
+                        </div>
+                        
+                        <div id="selectedBook" class="card mt-2 d-none">
+                            <div class="card-body p-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="book-logo me-3">
+                                        <img src="{{ asset('images/icons/book-logo.png') }}" alt="Kitap" style="width: 60px; height: auto;">
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h6 class="card-title mb-1" id="selected-title"></h6>
+                                        <p class="card-text mb-1 small" id="selected-authors"></p>
+                                        <div class="card-text small text-muted mb-1">
+                                            <span><strong>Yayınevi:</strong> <span id="selected-publisher"></span></span> | 
+                                            <span><strong>Yıl:</strong> <span id="selected-year"></span></span> | 
+                                            <span><strong>Kategori:</strong> <span id="selected-category"></span></span>
+                                        </div>
+                                        <div class="card-text small text-muted">
+                                            <span id="selected-isbn"></span> | 
+                                            <span><strong>Sayfa:</strong> <span id="selected-pages"></span></span> | 
+                                            <span><strong>Dil:</strong> <span id="selected-language"></span></span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <span class="badge bg-success" id="selected-stock"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="mb-3">
@@ -254,10 +321,216 @@
 
 @section('scripts')
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
 <script>
     $(document).ready(function() {
+        // Initialize Select2 for user dropdown
+        $('#user_id').select2({
+            theme: 'bootstrap4',
+            placeholder: 'Kullanıcı seçin',
+            allowClear: true,
+            width: '100%',
+            dropdownParent: $('#addBorrowingModal')
+        });
+        
+        // Book search functionality
+        $('#book_search').on('input', function() {
+            const searchTerm = $(this).val().toLowerCase();
+            
+            // Hide selected book card when search input changes
+            $('#selectedBook').addClass('d-none');
+            // Clear the hidden input
+            $('#book_id').val('');
+            
+            if (searchTerm.length < 2) {
+                $('#searchResults').addClass('d-none');
+                return;
+            }
+            
+            // Log the search attempt
+            console.log("Searching for books with term:", searchTerm);
+            
+            // Create some sample dummy books when testing
+            const dummyBooks = [
+                {
+                    id: 1,
+                    title: "Masumiyet Müzesi",
+                    author_names: "Orhan Pamuk",
+                    isbn: "9789750719387", 
+                    available_quantity: 3,
+                    total_quantity: 5,
+                    publisher: "Yapı Kredi Yayınları",
+                    publication_year: 2008,
+                    category: "Roman",
+                    page_count: 592,
+                    language: "Türkçe"
+                },
+                {
+                    id: 2,
+                    title: "Benim Adım Kırmızı",
+                    author_names: "Orhan Pamuk",
+                    isbn: "9789750837104",
+                    available_quantity: 2,
+                    total_quantity: 4,
+                    publisher: "Yapı Kredi Yayınları",
+                    publication_year: 1998,
+                    category: "Roman",
+                    page_count: 472,
+                    language: "Türkçe"
+                },
+                {
+                    id: 3,
+                    title: "Kar",
+                    author_names: "Orhan Pamuk",
+                    isbn: "9789750802331",
+                    available_quantity: 0,
+                    total_quantity: 2,
+                    publisher: "Yapı Kredi Yayınları",
+                    publication_year: 2002,
+                    category: "Roman",
+                    page_count: 352,
+                    language: "Türkçe"
+                }
+            ];
+            
+            // Filter dummy books based on search term
+            const filteredBooks = dummyBooks.filter(book => 
+                book.title.toLowerCase().includes(searchTerm) || 
+                book.author_names.toLowerCase().includes(searchTerm) || 
+                book.isbn.includes(searchTerm) ||
+                book.publisher.toLowerCase().includes(searchTerm)
+            );
+            
+            // Display results
+            $('#searchResults').removeClass('d-none').empty();
+            
+            if (filteredBooks.length === 0) {
+                $('#searchResults').append('<div class="list-group-item">Sonuç bulunamadı</div>');
+                return;
+            }
+            
+            // Display books
+            $.each(filteredBooks, function(index, book) {
+                const title = book.title;
+                const authors = book.author_names || '';
+                const isbn = book.isbn || '';
+                const stock = book.available_quantity || 0;
+                const isDisabled = stock <= 0;
+                
+                // Highlight matching text
+                const highlightedTitle = highlightText(title, searchTerm);
+                const highlightedAuthors = highlightText(authors, searchTerm);
+                const highlightedIsbn = highlightText(isbn, searchTerm);
+                const highlightedPublisher = highlightText(book.publisher, searchTerm);
+                
+                const html = `
+                    <a href="#" class="list-group-item list-group-item-action ${isDisabled ? 'disabled text-muted' : ''}" 
+                       data-id="${book.id}"
+                       data-title="${title}"
+                       data-authors="${authors}"
+                       data-isbn="${isbn}"
+                       data-publisher="${book.publisher}"
+                       data-year="${book.publication_year}"
+                       data-category="${book.category}"
+                       data-pages="${book.page_count}"
+                       data-language="${book.language}"
+                       data-stock="${stock}">
+                        <div class="d-flex align-items-center">
+                            <div class="book-logo me-2">
+                                <img src="{{ asset('images/icons/book-logo.png') }}" alt="Kitap" style="width: 40px; height: auto;">
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">${highlightedTitle}</h6>
+                                    <small class="text-${stock > 0 ? 'success' : 'danger'}">
+                                        ${stock > 0 ? `Stok: ${stock}` : 'Stokta Yok'}
+                                    </small>
+                                </div>
+                                <p class="mb-1">
+                                    <span class="text-muted">Yazar:</span> ${highlightedAuthors}
+                                </p>
+                                <div class="small text-muted mb-1">
+                                    <span><strong>Yayınevi:</strong> ${highlightedPublisher}</span> | 
+                                    <span><strong>Yıl:</strong> ${book.publication_year}</span> | 
+                                    <span><strong>Kategori:</strong> ${book.category}</span>
+                                </div>
+                                <div class="small text-muted">
+                                    <span><strong>ISBN:</strong> ${highlightedIsbn}</span> | 
+                                    <span><strong>Sayfa:</strong> ${book.page_count}</span> | 
+                                    <span><strong>Dil:</strong> ${book.language}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                `;
+                
+                $('#searchResults').append(html);
+            });
+        });
+        
+        // Function to highlight matching text
+        function highlightText(text, searchTerm) {
+            if (!text || !searchTerm) return text;
+            
+            const regex = new RegExp('(' + searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+            return text.replace(regex, '<span class="search-highlight">$1</span>');
+        }
+        
+        // Listen for Enter key in search field
+        $('#book_search').keydown(function(e) {
+            if (e.keyCode === 13) { // Enter key
+                e.preventDefault();
+                // Select the first result
+                $('#searchResults a:not(.disabled):first').click();
+            }
+        });
+        
+        // Handle book selection from search results
+        $(document).on('click', '#searchResults a', function(e) {
+            e.preventDefault();
+            
+            if ($(this).hasClass('disabled')) return;
+            
+            const bookId = $(this).data('id');
+            const title = $(this).data('title');
+            const authors = $(this).data('authors');
+            const isbn = $(this).data('isbn');
+            const stock = $(this).data('stock');
+            const publisher = $(this).data('publisher');
+            const publicationYear = $(this).data('year');
+            const category = $(this).data('category');
+            const pageCount = $(this).data('pages');
+            const language = $(this).data('language');
+            
+            // Set the selected value in the hidden input
+            $('#book_id').val(bookId).trigger('change');
+            
+            // Update the search input and hide results
+            $('#book_search').val(title);
+            $('#searchResults').addClass('d-none');
+            
+            // Show the selected book card with detailed information
+            $('#selected-title').text(title);
+            $('#selected-authors').text(authors);
+            $('#selected-isbn').text(`ISBN: ${isbn}`);
+            $('#selected-publisher').text(publisher);
+            $('#selected-year').text(publicationYear);
+            $('#selected-category').text(category);
+            $('#selected-pages').text(pageCount);
+            $('#selected-language').text(language);
+            $('#selected-stock').text(`Stok: ${stock}`);
+            $('#selectedBook').removeClass('d-none');
+        });
+        
+        // Clear search
+        $('#clearBookSearch').on('click', function() {
+            $('#book_search').val('');
+            $('#searchResults').addClass('d-none');
+            $('#selectedBook').addClass('d-none');
+            $('#book_id').val('');
+        });
+        
         // DataTable Initialization
         $('#borrowingsTable').DataTable({
             "language": {
@@ -365,15 +638,64 @@
             $('#delete_user_name').text(user);
         });
         
-        // Validate due date is after borrow date
+        // Validate due date is after borrow date and enforce 30-day maximum
         $('#borrow_date, #due_date').on('change', function() {
             var borrowDate = new Date($('#borrow_date').val());
             var dueDate = new Date($('#due_date').val());
             
+            // Maksimum 30 gün kuralı - maximum 30 days rule
+            var maxDueDate = new Date(borrowDate);
+            maxDueDate.setDate(maxDueDate.getDate() + 30);
+            
+            // Format dates for comparison
+            var today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            // Ensure borrow date is not in the past
+            if (borrowDate < today) {
+                alert('Ödünç alma tarihi geçmiş bir tarih olamaz.');
+                $('#borrow_date').val(formatDate(today));
+                borrowDate = today;
+                
+                // Recalculate max due date
+                maxDueDate = new Date(today);
+                maxDueDate.setDate(maxDueDate.getDate() + 30);
+            }
+            
+            // Ensure due date is after borrow date
             if (dueDate <= borrowDate) {
                 alert('Son iade tarihi, ödünç alma tarihinden sonra olmalıdır.');
-                $('#due_date').val(moment(borrowDate).add(15, 'days').format('YYYY-MM-DD'));
+                var newDueDate = new Date(borrowDate);
+                newDueDate.setDate(newDueDate.getDate() + 15); // Default to 15 days initially
+                $('#due_date').val(formatDate(newDueDate));
+                dueDate = newDueDate;
             }
+            
+            // Ensure due date is not more than 30 days after borrow date
+            if (dueDate > maxDueDate) {
+                alert('Son iade tarihi, ödünç alma tarihinden en fazla 30 gün sonra olabilir.');
+                $('#due_date').val(formatDate(maxDueDate));
+            }
+        });
+        
+        // Set max attribute for due_date input based on borrow_date
+        $('#borrow_date').on('change', function() {
+            var borrowDate = new Date($(this).val());
+            var maxDueDate = new Date(borrowDate);
+            maxDueDate.setDate(maxDueDate.getDate() + 30);
+            
+            // Set max attribute for due_date
+            $('#due_date').attr('max', formatDate(maxDueDate));
+        });
+        
+        // Initialize the max attribute on page load
+        $(document).ready(function() {
+            var borrowDate = new Date($('#borrow_date').val());
+            var maxDueDate = new Date(borrowDate);
+            maxDueDate.setDate(maxDueDate.getDate() + 30);
+            
+            // Set max attribute for due_date
+            $('#due_date').attr('max', formatDate(maxDueDate));
         });
         
         // Add Borrowing Modal - Yeni Ödünç Verme İşlemi
@@ -395,6 +717,7 @@
                 }
             }
             
+            // Tarih formatlama yardımcı fonksiyonu
             function formatDate(date) {
                 var d = new Date(date),
                     month = '' + (d.getMonth() + 1),
@@ -429,7 +752,9 @@
                 @method('PUT')
                 <div class="modal-body">
                     <div class="text-center mb-4">
-                        <i class="fas fa-book-reader fa-4x text-primary mb-3"></i>
+                        <div class="book-logo mb-3">
+                            <img src="{{ asset('images/icons/book-logo.png') }}" alt="Kitap" style="width: 50px; height: auto;">
+                        </div>
                         <h5 class="text-gray-900" id="return_book_title"></h5>
                         <p class="text-gray-600" id="return_user_name"></p>
                     </div>
@@ -578,7 +903,9 @@
             </div>
             <div class="modal-body">
                 <div class="text-center mb-4">
-                    <i class="fas fa-trash fa-4x text-danger mb-3"></i>
+                    <div class="book-logo mb-3">
+                        <img src="{{ asset('images/icons/book-logo.png') }}" alt="Kitap" style="width: 50px; height: auto;">
+                    </div>
                     <p>Bu ödünç işlemini silmek istediğinize emin misiniz?</p>
                     <div>
                         <strong>Kitap:</strong> <span id="delete_book_title"></span><br>

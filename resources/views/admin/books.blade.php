@@ -163,17 +163,8 @@ td:nth-child(5) *, tr td:nth-child(5) *, .yayinevi * {
                     <tr>
                         <td>{{ $book->id }}</td>
                         <td class="text-center">
-                            @php
-                                $coverPath = $book->cover_image ? 'storage/covers/' . $book->cover_image : 'img/no-cover.png';
-                                $coverExists = $book->cover_image ? file_exists(public_path('storage/covers/' . $book->cover_image)) : false;
-                                
-                                // Debug information in page source
-                                $fullPath = $book->cover_image ? public_path('storage/covers/' . $book->cover_image) : '';
-                                $exists = $coverExists ? 'true' : 'false';
-                                echo "<!-- Image Debug - Path: $fullPath - Exists: $exists -->";
-                            @endphp
-                            <img src="{{ $coverExists ? asset($coverPath) : asset('img/no-cover.png') }}" 
-                                 alt="{{ $book->title }}" class="img-thumbnail" style="width: 50px; height: 70px; object-fit: cover;">
+                            <img src="{{ asset('images/icons/book-logo.png') }}" 
+                                 alt="{{ $book->title }}" class="img-thumbnail" style="width: 50px; height: 70px; object-fit: contain;">
                         </td>
                         <td>{{ $book->title }}</td>
                         <td>{{ $book->author }}</td>
@@ -196,14 +187,6 @@ td:nth-child(5) *, tr td:nth-child(5) *, .yayinevi * {
                                         data-target="#editBookModal"
                                         title="Düzenle">
                                     <i class="fas fa-edit"></i>
-                                </button>
-                                <button class="btn btn-sm btn-secondary upload-cover" 
-                                        data-id="{{ $book->id }}" 
-                                        data-title="{{ $book->title }}"
-                                        data-toggle="modal" 
-                                        data-target="#uploadCoverModal"
-                                        title="Kapak Yükle">
-                                    <i class="fas fa-image"></i>
                                 </button>
                                 <button class="btn btn-sm btn-danger delete-book" 
                                         data-id="{{ $book->id }}" 
@@ -296,10 +279,11 @@ td:nth-child(5) *, tr td:nth-child(5) *, .yayinevi * {
                             </div>
                             
                             <div class="form-group">
-                                <label for="cover_image">Kapak Görseli</label>
-                                <div class="custom-file">
-                                    <input type="file" class="custom-file-input" id="cover_image" name="cover_image" accept="image/*">
-                                    <label class="custom-file-label" for="cover_image">Dosya seçin...</label>
+                                <label>Kitap Görseli</label>
+                                <div class="text-center">
+                                    <img src="{{ asset('images/icons/book-logo.png') }}" 
+                                         alt="Kitap Logo" class="img-fluid mb-2" style="width: 100px; height: auto;">
+                                    <p class="text-muted small">Tüm kitaplar için standart logo kullanılmaktadır.</p>
                                 </div>
                             </div>
                         </div>
@@ -390,13 +374,12 @@ td:nth-child(5) *, tr td:nth-child(5) *, .yayinevi * {
                             </div>
                             
                             <div class="form-group">
-                                <label>Kapak Görseli</label>
-                                <div class="text-center mb-2" id="edit_cover_preview_container">
-                                    <img id="edit_cover_preview" src="{{ asset('img/no-cover.png') }}" alt="Kapak Görseli" class="img-fluid" style="max-height: 150px;">
+                                <label>Kitap Görseli</label>
+                                <div class="text-center">
+                                    <img src="{{ asset('images/icons/book-logo.png') }}" 
+                                         alt="Kitap Logo" class="img-fluid mb-2" style="width: 100px; height: auto;">
+                                    <p class="text-muted small">Tüm kitaplar için standart logo kullanılmaktadır.</p>
                                 </div>
-                                <a href="#" class="btn btn-sm btn-primary mb-2" data-dismiss="modal" onclick="$('#uploadCoverModal').modal('show'); return false;">
-                                    <i class="fas fa-image mr-1"></i> Kapak Görselini Değiştir
-                                </a>
                             </div>
                         </div>
                         
@@ -417,7 +400,7 @@ td:nth-child(5) *, tr td:nth-child(5) *, .yayinevi * {
     </div>
 </div>
 
-<!-- Upload Cover Modal -->
+<!-- Upload Cover Modal - Disabled -->
 <div class="modal fade" id="uploadCoverModal" tabindex="-1" role="dialog" aria-labelledby="uploadCoverModalLabel" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
@@ -427,32 +410,18 @@ td:nth-child(5) *, tr td:nth-child(5) *, .yayinevi * {
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
-            <form id="uploadCoverForm" action="" method="POST" enctype="multipart/form-data">
-                @csrf
-                @method('POST')
-                <div class="modal-body">
-                    <div class="text-center mb-3" id="cover_preview_container">
-                        <img id="cover_preview" src="{{ asset('img/no-cover.png') }}" alt="Kapak Görseli" class="img-fluid" style="max-height: 200px;">
-                    </div>
-                    <div class="form-group">
-                        <label for="cover_image_upload">Kapak Görseli Seç</label>
-                        <div class="custom-file">
-                            <input type="file" class="custom-file-input" id="cover_image_upload" name="cover_image" accept="image/*" required>
-                            <label class="custom-file-label" for="cover_image_upload">Dosya seçin...</label>
-                        </div>
-                        <small class="form-text text-muted">Önerilen: 600x900 piksel, JPEG veya PNG formatında.</small>
-                        <div class="mt-2 text-info">
-                            <small>Yükleme yolu: storage/app/public/covers/</small>
-                            <br>
-                            <small>Bağlantı yolu: public/storage/covers/</small>
-                        </div>
-                    </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <p><i class="fas fa-info-circle"></i> Kitap kapak görseli yükleme özelliği devre dışı bırakılmıştır.</p>
+                    <p>Tüm kitaplar için standart logo kullanılmaktadır.</p>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">İptal</button>
-                    <button type="submit" class="btn btn-primary">Yükle</button>
+                <div class="text-center">
+                    <img src="{{ asset('images/icons/book-logo.png') }}" alt="Kitap Logo" class="img-fluid" style="width: 150px; height: auto;">
                 </div>
-            </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Kapat</button>
+            </div>
         </div>
     </div>
 </div>

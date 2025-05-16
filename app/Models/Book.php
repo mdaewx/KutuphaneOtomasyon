@@ -18,7 +18,6 @@ class Book extends Model
         'language',
         'publication_year',
         'description',
-        'cover_image',
         'shelf_id'
     ];
 
@@ -106,7 +105,16 @@ class Book extends Model
      */
     public function isAvailable()
     {
-        return $this->getAvailableQuantityAttribute() > 0;
+        // Aktif ödünç kayıtları var mı kontrol et
+        $activeBorrowingsCount = $this->borrowings()->whereNull('returned_at')->count();
+        
+        // Eğer hiç aktif ödünç yoksa, kitap mevcuttur
+        if ($activeBorrowingsCount === 0) {
+            return true;
+        }
+        
+        // Eğer aktif ödünç varsa, stok sayısı ödünç sayısından fazla mı kontrol et
+        return $this->getTotalQuantityAttribute() > $activeBorrowingsCount;
     }
 
     /**
@@ -114,12 +122,14 @@ class Book extends Model
      */
     public function getAvailableQuantityAttribute()
     {
-        return $this->stocks()
-            ->where('is_available', true)
-            ->whereDoesntHave('borrowings', function($query) {
-                $query->whereNull('returned_at');
-            })
-            ->count();
+        // Toplam stok sayısı
+        $totalStock = $this->getTotalQuantityAttribute();
+        
+        // Aktif ödünç sayısı
+        $activeBorrowings = $this->borrowings()->whereNull('returned_at')->count();
+        
+        // Kullanılabilir stok = Toplam stok - Aktif ödünç sayısı
+        return max(0, $totalStock - $activeBorrowings);
     }
 
     /**

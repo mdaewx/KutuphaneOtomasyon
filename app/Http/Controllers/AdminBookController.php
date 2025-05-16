@@ -23,9 +23,19 @@ class AdminBookController extends Controller
             ->orderBy('id', 'desc')
             ->get();
         
-        // Her kitap için isAvailable değerini ekle
+        // Her kitap için mevcut durumda olduğunu belirt
+        // Not: Kullanıcı henüz hiçbir kitap ödünç vermediğini belirttiği için
+        // tüm kitapları "mevcut" olarak işaretliyoruz
         $books->map(function($book) {
-            $book->is_available = $book->isAvailable();
+            $book->is_available = true;
+            
+            // Aktif ödünç kaydı olan kitapları kontrol et
+            $activeBorrowings = $book->borrowings()->whereNull('returned_at')->count();
+            if ($activeBorrowings > 0) {
+                // Gerçekten ödünç verildiyse, o zaman durum değişsin
+                $book->is_available = false;
+            }
+            
             return $book;
         });
         
@@ -58,7 +68,6 @@ class AdminBookController extends Controller
             'language' => 'required|string|max:50',
             'publication_year' => 'required|integer|min:1800|max:' . date('Y'),
             'description' => 'nullable|string',
-            'cover_image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'authors' => 'required|array|min:1',
             'authors.*' => 'exists:authors,id',
         ]);
@@ -80,37 +89,6 @@ class AdminBookController extends Controller
             'publication_year' => $validatedData['publication_year'],
             'description' => $validatedData['description'],
         ]);
-
-        // Handle cover image upload
-        if ($request->hasFile('cover_image')) {
-            try {
-                // Ensure directory exists
-                if (!Storage::exists('public/covers')) {
-                    Storage::makeDirectory('public/covers');
-                }
-                
-                $image = $request->file('cover_image');
-                $filename = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
-                $path = $image->storeAs('public/covers', $filename);
-                
-                // Debug log
-                \Log::info('New book cover uploaded', [
-                    'book_id' => $book->id,
-                    'filename' => $filename,
-                    'path' => $path,
-                    'exists' => Storage::exists($path)
-                ]);
-                
-                $book->cover_image = $filename;
-                $book->save();
-            } catch (\Exception $e) {
-                \Log::error('Cover upload failed during book creation', [
-                    'book_id' => $book->id,
-                    'error' => $e->getMessage()
-                ]);
-                // Continue despite image error - book is already created
-            }
-        }
 
         // Attach authors
         $book->authors()->attach($validatedData['authors']);
@@ -158,7 +136,6 @@ class AdminBookController extends Controller
             'language' => 'required|string|max:50',
             'publication_year' => 'required|integer|min:1800|max:' . date('Y'),
             'description' => 'nullable|string',
-            'cover_image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'authors' => 'required|array|min:1',
             'authors.*' => 'exists:authors,id',
         ]);
@@ -183,42 +160,6 @@ class AdminBookController extends Controller
             'description' => $validatedData['description'],
         ]);
 
-        // Handle cover image upload
-        if ($request->hasFile('cover_image')) {
-            try {
-                // Delete old cover image if exists
-                if ($book->cover_image) {
-                    Storage::delete('public/covers/' . $book->cover_image);
-                }
-                
-                // Ensure directory exists
-                if (!Storage::exists('public/covers')) {
-                    Storage::makeDirectory('public/covers');
-                }
-                
-                $image = $request->file('cover_image');
-                $filename = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
-                $path = $image->storeAs('public/covers', $filename);
-                
-                // Debug log
-                \Log::info('Updated book cover', [
-                    'book_id' => $book->id,
-                    'filename' => $filename,
-                    'path' => $path,
-                    'exists' => Storage::exists($path)
-                ]);
-                
-                $book->cover_image = $filename;
-                $book->save();
-            } catch (\Exception $e) {
-                \Log::error('Cover upload failed during book update', [
-                    'book_id' => $book->id,
-                    'error' => $e->getMessage()
-                ]);
-                // Continue despite image error
-            }
-        }
-
         // Sync authors
         $book->authors()->sync($validatedData['authors']);
 
@@ -236,65 +177,10 @@ class AdminBookController extends Controller
                 ->with('error', 'Bu kitap ödünç verilmiş durumda olduğu için silinemez.');
         }
 
-        if ($book->cover_image) {
-            Storage::delete('public/covers/' . $book->cover_image);
-        }
-
         $book->delete();
 
         return redirect()->route('admin.books.index')
             ->with('success', 'Kitap başarıyla silindi.');
-    }
-
-    /**
-     * Upload a new cover image for the book.
-     */
-    public function uploadCover(Request $request, Book $book)
-    {
-        $request->validate([
-            'cover_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048'
-        ]);
-
-        try {
-            // Delete old cover image if exists
-            if ($book->cover_image) {
-                Storage::delete('public/covers/' . $book->cover_image);
-            }
-
-            $image = $request->file('cover_image');
-            $filename = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
-            
-            // Ensure directory exists
-            if (!Storage::exists('public/covers')) {
-                Storage::makeDirectory('public/covers');
-            }
-            
-            // Store the image
-            $path = $image->storeAs('public/covers', $filename);
-            
-            // Debug log
-            \Log::info('Cover image uploaded', [
-                'book_id' => $book->id,
-                'book_title' => $book->title,
-                'filename' => $filename,
-                'path' => $path,
-                'exists' => Storage::exists($path)
-            ]);
-            
-            // Update book
-            $book->cover_image = $filename;
-            $book->save();
-            
-            return redirect()->back()->with('success', 'Kapak resmi başarıyla güncellendi.');
-        } catch (\Exception $e) {
-            \Log::error('Cover upload failed', [
-                'book_id' => $book->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return redirect()->back()->with('error', 'Kapak resmi yüklenirken bir hata oluştu: ' . $e->getMessage());
-        }
     }
 
     /**
@@ -316,8 +202,7 @@ class AdminBookController extends Controller
                     'language' => $existingBook->language,
                     'page_count' => $existingBook->page_count,
                     'available_quantity' => $existingBook->available_quantity,
-                    'total_quantity' => $existingBook->quantity,
-                    'cover_image' => $existingBook->cover_image
+                    'total_quantity' => $existingBook->quantity
                 ]
             ]);
         }
@@ -478,6 +363,70 @@ class AdminBookController extends Controller
         return response()->json([
             'book' => $book,
             'publisher' => $book->publisher ? $book->publisher->name : 'Belirtilmemiş',
+            'success' => true
+        ]);
+    }
+
+    /**
+     * Search for books by title, author, or ISBN
+     */
+    public function search(Request $request)
+    {
+        $term = $request->input('term');
+        
+        if (empty($term) || strlen($term) < 2) {
+            return response()->json([
+                'books' => [],
+                'total_count' => 0,
+                'success' => true
+            ]);
+        }
+        
+        // Log the search attempt
+        \Log::info('Admin book search', ['term' => $term]);
+        
+        // Search in books by title or ISBN
+        $books = Book::with(['authors', 'publisher', 'category'])
+            ->where(function($query) use ($term) {
+                $query->where('title', 'LIKE', "%{$term}%")
+                    ->orWhere('isbn', 'LIKE', "%{$term}%");
+            });
+            
+        // Handle author search by joining with the authors table
+        $booksWithAuthorMatch = Book::with(['authors', 'publisher', 'category'])
+            ->join('author_book', 'books.id', '=', 'author_book.book_id')
+            ->join('authors', 'author_book.author_id', '=', 'authors.id')
+            ->where(function($query) use ($term) {
+                $query->where('authors.name', 'LIKE', "%{$term}%")
+                    ->orWhere('authors.surname', 'LIKE', "%{$term}%");
+            })
+            ->select('books.*')
+            ->distinct();
+            
+        // Combine the queries
+        $books = $books->union($booksWithAuthorMatch)
+            ->get();
+        
+        // Prepare the response
+        $formattedBooks = $books->map(function($book) {
+            return [
+                'id' => $book->id,
+                'title' => $book->title,
+                'isbn' => $book->isbn,
+                'author_names' => $book->authors->map(function($author) {
+                    return $author->name . ' ' . $author->surname;
+                })->join(', '),
+                'publisher' => $book->publisher ? $book->publisher->name : 'Belirtilmemiş',
+                'category' => $book->category ? $book->category->name : 'Belirtilmemiş',
+                'cover_image' => $book->cover_image ? asset('storage/covers/' . $book->cover_image) : null,
+                'available_quantity' => $book->getAvailableQuantityAttribute(),
+                'total_quantity' => $book->getTotalQuantityAttribute()
+            ];
+        });
+        
+        return response()->json([
+            'books' => $formattedBooks,
+            'total_count' => $formattedBooks->count(),
             'success' => true
         ]);
     }

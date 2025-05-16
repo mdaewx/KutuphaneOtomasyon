@@ -31,9 +31,12 @@
             <div class="row">
                 <div class="col-md-4">
                     <div class="text-center mb-4">
-                        <img src="{{ $book->cover_image ? asset('storage/covers/' . $book->cover_image) : asset('images/no-cover.png') }}" 
-                             alt="{{ $book->title }}" class="img-fluid rounded shadow" style="max-height: 300px;">
-                        
+                        <div class="card">
+                            <div class="card-body">
+                                <img src="{{ asset('images/icons/book-logo.png') }}" 
+                                     alt="{{ $book->title }}" class="img-fluid" style="width: 200px; height: auto;">
+                            </div>
+                        </div>
                         <div class="mt-3">
                             <a href="{{ route('staff.books.edit', $book) }}" class="btn btn-primary">
                                 <i class="fas fa-edit"></i> Düzenle

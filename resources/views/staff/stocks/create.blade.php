@@ -57,7 +57,7 @@
                     <div class="row mb-3">
                         <div class="col-md-3">
                             <div class="book-cover-container text-center mb-3">
-                                <img id="bookCover" src="" alt="Kitap Kapağı" class="img-fluid book-cover" style="max-height: 200px; display: none;">
+                                <img id="bookCover" src="{{ asset('images/icons/book-logo.png') }}" alt="Kitap Kapağı" class="img-fluid book-cover" style="max-height: 200px; display: none;">
                                 <div id="noCover" class="no-cover-placeholder">
                                     <i class="fas fa-book fa-5x text-secondary"></i>
                                     <p class="mt-2">Kapak yok</p>
@@ -438,17 +438,9 @@ $(document).ready(function() {
                     $('#bookDescription').text(book.description || 'Açıklama yok');
                     
                     // Kapak resmi kontrolü
-                    if (book.cover_image) {
-                        var coverUrl = '/storage/covers/' + book.cover_image;
-                        if (book.cover_image.startsWith('http')) {
-                            coverUrl = book.cover_image;
-                        }
-                        $('#bookCover').attr('src', coverUrl).show();
-                        $('#noCover').hide();
-                    } else {
-                        $('#bookCover').hide();
-                        $('#noCover').show();
-                    }
+                    // Her zaman standart kitap logosu kullan
+                    $('#bookCover').attr('src', '{{ asset('images/icons/book-logo.png') }}').show();
+                    $('#noCover').hide();
                     
                     // Kitap detayları bölümünü göster
                     $('#bookDetails').removeClass('d-none');

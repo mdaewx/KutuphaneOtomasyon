@@ -84,18 +84,27 @@ class Stock extends Model
     // Kullanılabilirlik durumu kontrolü
     public function isAvailable()
     {
-        // Ödünç durumunu kontrol edelim ve güncelleyelim
-        $borrowed = $this->isCurrentlyBorrowed();
+        // Eğer bir ödünç verme kaydı varsa ve iade edilmemişse, kitap mevcut değildir
+        $activeBorrowing = $this->borrowings()->whereNull('returned_at')->exists();
         
-        // Ödünç verilmediyse ve stok available değilse güncelle
-        if (!$borrowed && $this->status !== self::STATUS_AVAILABLE && 
-            $this->status !== self::STATUS_RESERVED && 
-            $this->status !== self::STATUS_LOST && 
-            $this->status !== self::STATUS_DAMAGED) {
-            $this->update(['status' => self::STATUS_AVAILABLE]);
+        if ($activeBorrowing) {
+            // Kitap ödünç verilmiş, mevcut değil
+            if ($this->status !== self::STATUS_BORROWED) {
+                $this->update(['status' => self::STATUS_BORROWED]);
+            }
+            return false;
         }
         
-        return $this->status === self::STATUS_AVAILABLE;
+        // Kitap ödünç verilmemişse ve hasar/kayıp durumunda değilse, mevcuttur
+        if ($this->status !== self::STATUS_LOST && $this->status !== self::STATUS_DAMAGED) {
+            if ($this->status !== self::STATUS_AVAILABLE) {
+                $this->update(['status' => self::STATUS_AVAILABLE, 'is_available' => true]);
+            }
+            return true;
+        }
+        
+        // Kitap kayıp veya hasarlı ise kullanılamaz
+        return false;
     }
 
     // Durumun okunabilir Türkçe adını döndüren metot

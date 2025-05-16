@@ -28,23 +28,12 @@
         </div>
         <div class="card-body">
             <div class="row">
-                <div class="col-md-4">
-                    <div class="text-center mb-4">
-                        @php
-                            $coverImageExists = $book->cover_image && file_exists(public_path('storage/covers/' . $book->cover_image));
-                        @endphp
-                        
-                        @if($coverImageExists)
-                            <!-- Show the actual cover image if it exists -->
-                            <img src="{{ asset('storage/covers/' . $book->cover_image) }}" 
-                                 alt="{{ $book->title }}" class="img-fluid rounded shadow" style="max-height: 300px;">
-                        @else
-                            <!-- Show default image -->
-                            <img src="{{ asset('images/no-cover.png') }}" 
-                                 alt="{{ $book->title }}" class="img-fluid rounded shadow" style="max-height: 300px;">
-                        @endif
-                        
-                        <div class="mt-3">
+                <div class="col-md-4 text-center">
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <img src="{{ asset('images/icons/book-logo.png') }}" alt="Kitap Logo" class="img-fluid" style="width: 200px; height: auto;">
+                        </div>
+                        <div class="card-footer">
                             <a href="{{ route('admin.books.edit', $book) }}" class="btn btn-primary">
                                 <i class="fas fa-edit"></i> Düzenle
                             </a>

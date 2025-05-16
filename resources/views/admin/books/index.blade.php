@@ -38,13 +38,11 @@
                     <thead>
                         <tr>
                             <th>ID</th>
-                            <th>Kapak</th>
-                            <th>Başlık</th>
-                            <th>Yazarlar</th>
+                            <th>Kitap</th>
+                            <th>ISBN</th>
                             <th>Yayınevi</th>
                             <th>Kategori</th>
-                            <th>ISBN</th>
-                            <th>Açıklama</th>
+                            <th>Durum</th>
                             <th>İşlemler</th>
                         </tr>
                     </thead>
@@ -53,38 +51,27 @@
                             <tr>
                                 <td>{{ $book->id }}</td>
                                 <td>
-                                    @php
-                                        $coverExists = $book->cover_image && file_exists(public_path('storage/covers/' . $book->cover_image));
-                                    @endphp
-                                    
-                                    @if($book->cover_image && $coverExists)
-                                        <img src="{{ asset('storage/covers/' . $book->cover_image) }}" 
-                                            alt="{{ $book->title }}" class="img-thumbnail" style="height: 50px; width: auto;">
-                                    @else
-                                        <img src="{{ asset('images/no-cover.png') }}" 
-                                            alt="Kapak Yok" class="img-thumbnail" style="height: 50px; width: auto;">
-                                    @endif
+                                    <div class="d-flex align-items-center">
+                                        <div class="me-3" style="width: 60px; height: 60px; overflow: hidden;">
+                                            <img src="{{ asset('images/icons/book-logo.png') }}" alt="{{ $book->title }}" 
+                                                class="img-fluid" style="width: 100%; height: auto; object-fit: contain;">
+                                        </div>
+                                        <div>
+                                            <h6 class="mb-0">{{ $book->title }}</h6>
+                                            <small class="text-muted">{{ $book->authors->pluck('name')->join(', ') }}</small>
+                                        </div>
+                                    </div>
                                 </td>
-                                <td>{{ $book->title }}</td>
-                                <td>
-                                    @foreach($book->authors as $author)
-                                        {{ $author->name }} {{ $author->surname }}@if(!$loop->last), @endif
-                                    @endforeach
-                                </td>
-                                <td>
-                                    @if($book->publisher_id)
-                                        <span class="badge badge-info">
-                                            {{ $book->publisher_name }}
-                                        </span>
-                                    @else
-                                        <span class="badge badge-dark">
-                                            Yayınevi Belirtilmemiş
-                                        </span>
-                                    @endif
-                                </td>
-                                <td>{{ $book->category ? $book->category->name : '-' }}</td>
                                 <td>{{ $book->isbn }}</td>
-                                <td>{{ $book->description ?? '-' }}</td>
+                                <td>{{ $book->publisher ? $book->publisher->name : '-' }}</td>
+                                <td>{{ $book->category ? $book->category->name : '-' }}</td>
+                                <td>
+                                    @if($book->isAvailable())
+                                        <span class="badge bg-success">Mevcut</span>
+                                    @else
+                                        <span class="badge bg-danger">Ödünç Verildi</span>
+                                    @endif
+                                </td>
                                 <td>
                                     <a href="{{ route('admin.books.show', $book) }}" class="btn btn-sm btn-info">
                                         <i class="fas fa-eye"></i>

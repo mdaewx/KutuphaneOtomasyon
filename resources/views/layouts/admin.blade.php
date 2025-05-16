@@ -383,6 +383,13 @@
                     </a>
                 </li>
 
+                <li class="nav-item {{ request()->routeIs('admin.fines.*') ? 'active' : '' }}">
+                    <a class="nav-link" href="{{ route('admin.fines.index') }}">
+                        <i class="fas fa-money-bill"></i>
+                        <span>Ceza İşlemleri</span>
+                    </a>
+                </li>
+
                 <li class="nav-item {{ request()->routeIs('admin.acquisitions.*') ? 'active' : '' }}">
                     <a class="nav-link" href="{{ route('admin.acquisitions.index') }}">
                         <i class="fas fa-file-invoice"></i>

@@ -15,9 +15,11 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->foreignId('book_id')->constrained()->onDelete('cascade');
+            $table->foreignId('borrowing_id')->constrained()->onDelete('cascade');
             $table->integer('days_late')->nullable();
             $table->decimal('fine_amount', 5, 2);
-            $table->enum('paid', ['evet', 'hayir'])->default('hayir');
+            $table->boolean('paid')->default(false);
+            $table->timestamp('paid_at')->nullable();
             $table->timestamps();
         });
     }

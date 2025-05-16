@@ -134,8 +134,8 @@
                                             <tr>
                                                 <td>
                                                     <div class="d-flex align-items-center">
-                                                        <img src="{{ $borrowing->book->cover_image ? asset('storage/covers/' . $borrowing->book->cover_image) : asset('img/no-cover.png') }}" 
-                                                            alt="{{ $borrowing->book->title }}" class="me-2" style="width: 40px; height: 60px; object-fit: cover;">
+                                                        <img src="{{ asset('images/icons/book-logo.png') }}" 
+                                                            alt="{{ $borrowing->book->title }}" class="me-2" style="width: 40px; height: 60px; object-fit: contain;">
                                                         <div>
                                                             <div class="fw-bold">{{ $borrowing->book->title }}</div>
                                                             <small class="text-muted">{{ $borrowing->book->author }}</small>
@@ -195,8 +195,8 @@
                                             <tr>
                                                 <td>
                                                     <div class="d-flex align-items-center">
-                                                        <img src="{{ $borrowing->book->cover_image ? asset('storage/covers/' . $borrowing->book->cover_image) : asset('img/no-cover.png') }}" 
-                                                            alt="{{ $borrowing->book->title }}" class="me-2" style="width: 40px; height: 60px; object-fit: cover;">
+                                                        <img src="{{ asset('images/icons/book-logo.png') }}" 
+                                                            alt="{{ $borrowing->book->title }}" class="me-2" style="width: 40px; height: 60px; object-fit: contain;">
                                                         <div>
                                                             <div class="fw-bold">{{ $borrowing->book->title }}</div>
                                                             <small class="text-muted">{{ $borrowing->book->author }}</small>
@@ -244,8 +244,8 @@
                                             <tr class="table-danger">
                                                 <td>
                                                     <div class="d-flex align-items-center">
-                                                        <img src="{{ $borrowing->book->cover_image ? asset('storage/covers/' . $borrowing->book->cover_image) : asset('img/no-cover.png') }}" 
-                                                            alt="{{ $borrowing->book->title }}" class="me-2" style="width: 40px; height: 60px; object-fit: cover;">
+                                                        <img src="{{ asset('images/icons/book-logo.png') }}" 
+                                                            alt="{{ $borrowing->book->title }}" class="me-2" style="width: 40px; height: 60px; object-fit: contain;">
                                                         <div>
                                                             <div class="fw-bold">{{ $borrowing->book->title }}</div>
                                                             <small class="text-muted">{{ $borrowing->book->author }}</small>
@@ -440,6 +440,78 @@
             $('#return_book_title').text(book);
             $('#return_user_name').text(user);
         });
+        
+        // 30 gün kısıtlaması için tarih kontrolleri
+        // Format date helper function
+        function formatDate(date) {
+            var d = new Date(date),
+                month = '' + (d.getMonth() + 1),
+                day = '' + d.getDate(),
+                year = d.getFullYear();
+        
+            if (month.length < 2) 
+                month = '0' + month;
+            if (day.length < 2) 
+                day = '0' + day;
+        
+            return [year, month, day].join('-');
+        }
+        
+        // Enforce 30-day maximum between borrow_date and due_date
+        $('#borrow_date, #due_date').on('change', function() {
+            var borrowDate = new Date($('#borrow_date').val());
+            var dueDate = new Date($('#due_date').val());
+            
+            // Maximum 30 days rule
+            var maxDueDate = new Date(borrowDate);
+            maxDueDate.setDate(maxDueDate.getDate() + 30);
+            
+            // Format dates for comparison
+            var today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            // Ensure borrow date is not in the past
+            if (borrowDate < today) {
+                alert('Ödünç alma tarihi geçmiş bir tarih olamaz.');
+                $('#borrow_date').val(formatDate(today));
+                borrowDate = today;
+                
+                // Recalculate max due date
+                maxDueDate = new Date(today);
+                maxDueDate.setDate(maxDueDate.getDate() + 30);
+            }
+            
+            // Ensure due date is after borrow date
+            if (dueDate <= borrowDate) {
+                alert('Son iade tarihi, ödünç alma tarihinden sonra olmalıdır.');
+                var newDueDate = new Date(borrowDate);
+                newDueDate.setDate(newDueDate.getDate() + 15); // Default to 15 days
+                $('#due_date').val(formatDate(newDueDate));
+                dueDate = newDueDate;
+            }
+            
+            // Ensure due date is not more than 30 days after borrow date
+            if (dueDate > maxDueDate) {
+                alert('Son iade tarihi, ödünç alma tarihinden en fazla 30 gün sonra olabilir.');
+                $('#due_date').val(formatDate(maxDueDate));
+            }
+        });
+        
+        // Set max attribute for due_date based on borrow_date
+        $('#borrow_date').on('change', function() {
+            var borrowDate = new Date($(this).val());
+            var maxDueDate = new Date(borrowDate);
+            maxDueDate.setDate(maxDueDate.getDate() + 30);
+            
+            // Set max attribute for due_date
+            $('#due_date').attr('max', formatDate(maxDueDate));
+        });
+        
+        // Initialize max attribute on page load
+        var borrowDate = new Date($('#borrow_date').val());
+        var maxDueDate = new Date(borrowDate);
+        maxDueDate.setDate(maxDueDate.getDate() + 30);
+        $('#due_date').attr('max', formatDate(maxDueDate));
     });
     
     // Function to select user in the borrowing modal

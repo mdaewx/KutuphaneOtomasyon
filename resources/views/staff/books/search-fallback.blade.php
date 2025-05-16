@@ -30,14 +30,9 @@
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-3">
-                        @if($book->cover_image)
-                            <img src="{{ $book->cover_image_url }}" alt="{{ $book->title }}" class="img-fluid rounded mb-3">
-                        @else
-                            <div class="text-center p-4 bg-light rounded mb-3">
-                                <i class="fas fa-book fa-5x text-secondary"></i>
-                                <p class="mt-2 text-muted">Kapak resmi yok</p>
-                            </div>
-                        @endif
+                        <div class="text-center mb-3">
+                            <img src="{{ asset('images/icons/book-logo.png') }}" alt="{{ $book->title }}" class="img-fluid rounded" style="width: 200px; height: auto;">
+                        </div>
                     </div>
                     <div class="col-md-9">
                         <h3>{{ $book->title }}</h3>
@@ -106,8 +101,7 @@ function useThisBook() {
         authors: '{{ $authorNames ?? "" }}',
         publisher: '{{ $publisherName ?? "" }}',
         publication_year: '{{ $book->publication_year ?? "" }}',
-        description: '{{ $book->description ?? "" }}',
-        cover_image: '{{ $book->cover_image_url ?? "" }}'
+        description: '{{ $book->description ?? "" }}'
     };
     
     if (window.opener && !window.opener.closed) {

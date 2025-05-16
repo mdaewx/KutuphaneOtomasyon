@@ -260,11 +260,8 @@
             $('#bookYear').text(book.publication_year || 'Belirtilmemiş');
             $('#bookDescription').text(book.description || 'Açıklama yok');
             
-            if (book.cover_image) {
-                $('#bookCover').attr('src', book.cover_image).show();
-            } else {
-                $('#bookCover').hide();
-            }
+            // Always use the standard book logo
+            $('#bookCover').attr('src', '{{ asset('images/icons/book-logo.png') }}').show();
             
             $('#bookDetails').show();
         }

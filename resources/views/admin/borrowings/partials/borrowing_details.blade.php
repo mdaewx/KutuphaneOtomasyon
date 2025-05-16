@@ -1,8 +1,8 @@
 <div class="row">
     <div class="col-md-4 text-center mb-3 mb-md-0">
         <div class="border rounded p-3">
-            <img src="{{ $borrowing->book->cover_image ? asset('storage/covers/' . $borrowing->book->cover_image) : asset('img/no-cover.png') }}" 
-                alt="{{ $borrowing->book->title }}" class="img-fluid mb-3" style="max-height: 150px; object-fit: contain;">
+            <img src="{{ asset('images/icons/book-logo.png') }}" 
+                alt="{{ $borrowing->book->title }}" class="img-fluid mb-3" style="width: 200px; height: auto;">
             <h5 class="mb-1">{{ $borrowing->book->title }}</h5>
             <p class="text-muted mb-1">{{ $borrowing->book->author }}</p>
             @if($borrowing->book->isbn)

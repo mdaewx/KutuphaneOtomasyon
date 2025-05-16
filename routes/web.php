@@ -94,11 +94,12 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     // Kullanıcı Yönetimi
     Route::resource('users', AdminUserController::class);
     
-    // Kitap Yönetimi
-    Route::resource('books', AdminBookController::class);
-    Route::post('/books/{book}/upload-cover', [AdminBookController::class, 'uploadCover'])->name('books.upload-cover');
+    // Kitap Yönetimi - Explicit routes must come BEFORE resource route
+    Route::get('/books/search-query', [AdminBookController::class, 'search']);
     Route::get('/books/check-isbn/{isbn}', [AdminBookController::class, 'checkIsbn'])->name('books.check-isbn');
     Route::get('/books/search/{isbn}', [AdminBookController::class, 'searchByIsbn'])->name('books.search');
+    Route::get('/api/books/search', [AdminBookController::class, 'search'])->name('api.books.search');
+    Route::resource('books', AdminBookController::class);
     
     // Yazar Yönetimi
     Route::resource('authors', AuthorController::class);
@@ -145,6 +146,15 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/shelf-management/assign', [ShelfManagementController::class, 'assign'])->name('shelf-management.assign');
     Route::post('/shelf-management/{book}/update-shelf', [ShelfManagementController::class, 'updateShelf'])->name('shelf-management.update-shelf');
     Route::get('/shelf-management/search', [ShelfManagementController::class, 'search'])->name('shelf-management.search');
+
+    // Ceza İşlemleri
+    Route::get('/fines', [App\Http\Controllers\Admin\FineController::class, 'index'])->name('fines.index');
+    Route::get('/fines/{fine}', [App\Http\Controllers\Admin\FineController::class, 'show'])->name('fines.show');
+    Route::put('/fines/{fine}/mark-as-paid', [App\Http\Controllers\Admin\FineController::class, 'markAsPaid'])->name('fines.mark-as-paid');
+    Route::put('/fines/{fine}/forgive', [App\Http\Controllers\Admin\FineController::class, 'forgive'])->name('fines.forgive');
+    Route::delete('/fines/{fine}', [App\Http\Controllers\Admin\FineController::class, 'destroy'])->name('fines.destroy');
+    Route::post('/fines/update-rate', [App\Http\Controllers\Admin\FineController::class, 'updateFineRate'])->name('fines.update-rate');
+    Route::post('/fines/return-overdue-book/{borrowing}', [App\Http\Controllers\Admin\FineController::class, 'returnOverdueBook'])->name('fines.return-overdue-book');
 
     // Kitap edinme kaynakları
     Route::get('/books/{book}/add-acquisition', [AdminBookController::class, 'addAcquisitionSource'])
@@ -229,6 +239,13 @@ Route::middleware(['auth'])->prefix('staff')->name('staff.')->group(function () 
     
     // Yayınevi Yönetimi
     Route::resource('publishers', PublisherController::class);
+    
+    // Ceza İşlemleri
+    Route::get('fines', [FineController::class, 'index'])->name('fines.index');
+    Route::get('fines/{fine}', [FineController::class, 'show'])->name('fines.show');
+    Route::put('fines/{fine}/mark-as-paid', [FineController::class, 'markAsPaid'])->name('fines.mark-as-paid');
+    Route::put('fines/{fine}/forgive', [FineController::class, 'forgive'])->name('fines.forgive');
+    Route::post('fines/return-overdue-book/{borrowing}', [FineController::class, 'returnOverdueBook'])->name('fines.return-overdue-book');
 });
 
 // Test route for admin dashboard
@@ -268,5 +285,9 @@ Route::middleware(['auth', 'librarian'])->prefix('librarian')->name('librarian.'
 Route::get('/test-isbn-search', function() {
     return view('test-isbn-search');
 })->name('test.isbn-search');
+
+// Public kitap arama rotası - tüm arama isteklerini buraya yönlendir
+Route::get('/books/search', [App\Http\Controllers\BookController::class, 'search'])->name('books.search');
+Route::get('/books/search-by-isbn', [App\Http\Controllers\BookController::class, 'searchByIsbn'])->name('books.search-by-isbn');
 
 require __DIR__.'/auth.php';

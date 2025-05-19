@@ -291,4 +291,50 @@ class AdminBorrowingController extends Controller
         return redirect()->route('admin.borrowings.index')
                          ->with('success', 'Ödünç kaydı başarıyla silindi.');
     }
+
+    /**
+     * API: Get borrowings for a specific user
+     */
+    public function getUserBorrowings(User $user)
+    {
+        $borrowings = Borrowing::with(['book'])
+            ->where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function($borrowing) {
+                return [
+                    'id' => $borrowing->id,
+                    'book_id' => $borrowing->book_id,
+                    'book_title' => $borrowing->book->title,
+                    'borrow_date' => $borrowing->borrow_date ? $borrowing->borrow_date->format('d.m.Y') : '-',
+                    'due_date' => $borrowing->due_date ? $borrowing->due_date->format('d.m.Y') : '-',
+                    'is_overdue' => $borrowing->isOverdue(),
+                    'overdue_days' => $borrowing->getOverdueDays(),
+                    'status' => $borrowing->status
+                ];
+            });
+            
+        return response()->json($borrowings);
+    }
+    
+    /**
+     * API: Get details for a specific borrowing
+     */
+    public function getBorrowingDetails(Borrowing $borrowing)
+    {
+        $borrowingData = [
+            'id' => $borrowing->id,
+            'user_id' => $borrowing->user_id,
+            'book_id' => $borrowing->book_id,
+            'borrow_date' => $borrowing->borrow_date ? $borrowing->borrow_date->format('d.m.Y') : '-',
+            'due_date' => $borrowing->due_date ? $borrowing->due_date->format('d.m.Y') : '-',
+            'returned_at' => $borrowing->returned_at ? $borrowing->returned_at->format('d.m.Y') : null,
+            'status' => $borrowing->status,
+            'is_overdue' => $borrowing->isOverdue(),
+            'overdue_days' => $borrowing->getOverdueDays(),
+            'potential_fine' => $borrowing->getOverdueDays() * (session('overdue_fine_per_day') ?? 1.0)
+        ];
+        
+        return response()->json($borrowingData);
+    }
 } 

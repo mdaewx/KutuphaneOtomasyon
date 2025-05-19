@@ -76,35 +76,71 @@
         }
 
         .book-card {
-            background: white;
-            border-radius: 15px;
+            min-height: 370px;
+            max-height: 420px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: stretch;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 24px;
+            padding: 12px 8px 0 8px;
+            background: #fff;
             overflow: hidden;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            margin-bottom: 2rem;
-            border: none;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            height: 100%;
+            position: relative;
         }
-
-        .book-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+        .book-card .card-body {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 0 12px 12px 12px;
         }
-
-        .book-image {
-            height: 250px;
-            object-fit: cover;
+        .book-card .card-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 6px;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
-
+        .book-card .card-text {
+            font-size: 0.95rem;
+            color: #666;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 8px;
+        }
+        .book-card .d-flex {
+            margin-top: 8px;
+        }
+        .book-card img {
+            max-width: 110px;
+            max-height: 110px;
+            margin: 0 auto 8px auto;
+            display: block;
+        }
         .book-category {
             position: absolute;
-            top: 1rem;
-            right: 1rem;
-            background: var(--primary-color);
-            color: white;
-            padding: 0.3rem 0.8rem;
-            border-radius: 20px;
-            font-size: 0.8rem;
+            top: 10px;
+            left: 10px;
+            background: #f1f3f6;
+            color: #3a3a3a;
+            font-size: 0.85rem;
+            padding: 2px 10px;
+            border-radius: 8px;
+            z-index: 2;
+        }
+        @media (max-width: 991px) {
+            .book-card { min-height: 340px; max-height: 400px; }
+        }
+        @media (max-width: 767px) {
+            .book-card { min-height: 300px; max-height: 370px; }
+            .book-card .card-title, .book-card .card-text { font-size: 0.98rem; }
         }
 
         .section-title {

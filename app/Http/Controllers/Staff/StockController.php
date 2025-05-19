@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Book;
 use App\Models\Stock;
 use App\Models\Shelf;
+use App\Models\User;
 use App\Models\AcquisitionSource;
 use Illuminate\Http\Request;
 
@@ -32,9 +33,10 @@ class StockController extends Controller
     {
         $this->checkStaffAccess($request);
         $books = Book::all();
-        $shelves = \App\Models\Shelf::all();
-        $acquisitionSources = \App\Models\AcquisitionSource::all();
-        return view('staff.stocks.create', compact('books', 'shelves', 'acquisitionSources'));
+        $shelves = Shelf::all();
+        $acquisitionSources = AcquisitionSource::all();
+        $users = User::where('is_admin', 0)->orderBy('name')->get();
+        return view('staff.stocks.create', compact('books', 'shelves', 'acquisitionSources', 'users'));
     }
 
     public function store(Request $request)
@@ -144,10 +146,8 @@ class StockController extends Controller
             ->with('success', 'Stok başarıyla silindi.');
     }
 
-    public function searchBook(Request $request)
+    public function searchBook($isbn)
     {
-        $this->checkStaffAccess($request);
-        $isbn = $request->get('isbn');
         $book = Book::with(['authors', 'publisher', 'category', 'stocks'])
             ->where('isbn', $isbn)
             ->first();

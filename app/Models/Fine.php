@@ -16,7 +16,10 @@ class Fine extends Model
         'days_late',
         'fine_amount',
         'paid',
-        'paid_at'
+        'paid_at',
+        'payment_method',
+        'payment_notes',
+        'collected_by'
     ];
 
     /**
@@ -41,5 +44,29 @@ class Fine extends Model
     public function borrowing()
     {
         return $this->belongsTo(Borrowing::class);
+    }
+
+    /**
+     * Bu cezayı tahsil eden personel
+     */
+    public function collector()
+    {
+        return $this->belongsTo(User::class, 'collected_by');
+    }
+
+    /**
+     * Ceza ödenmiş mi kontrolü
+     */
+    public function isPaid()
+    {
+        return $this->paid;
+    }
+
+    /**
+     * Ceza miktarını formatlı göster
+     */
+    public function getFormattedAmountAttribute()
+    {
+        return number_format($this->fine_amount, 2) . ' TL';
     }
 }

@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Fine;
 use App\Models\Borrowing;
 use App\Models\User;
+use App\Models\Book;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class FineController extends Controller
 {
@@ -43,17 +45,42 @@ class FineController extends Controller
         // Günlük ceza tutarı
         $dailyFineRate = $this->getDailyFineRate();
         
-        return view('admin.fines.index', compact('fines', 'overdueBorrowings', 'userFines', 'dailyFineRate'));
+        // Ceza eklemek için kullanıcı listesi
+        $users = User::where('is_admin', 0)
+               ->where('is_staff', 0)
+               ->orderBy('name')
+               ->get();
+        
+        // Ceza eklemek için kitap listesi
+        $books = Book::orderBy('title')->get();
+        
+        return view('admin.fines.index', compact(
+            'fines', 
+            'overdueBorrowings', 
+            'userFines', 
+            'dailyFineRate',
+            'users',
+            'books'
+        ));
     }
     
     /**
      * Ödenmiş olarak işaretle
      */
-    public function markAsPaid($id)
+    public function markAsPaid(Request $request, $id)
     {
         $fine = Fine::findOrFail($id);
+        
+        // Ödeme bilgilerini güncelle
         $fine->paid = true;
-        $fine->paid_at = now();
+        $fine->paid_at = $request->has('payment_date') ? 
+            Carbon::createFromFormat('Y-m-d', $request->payment_date) : now();
+            
+        // Ek ödeme bilgilerini kaydet
+        $fine->payment_method = $request->payment_method ?? 'cash';
+        $fine->payment_notes = $request->payment_notes;
+        $fine->collected_by = auth()->user()->id; // Tahsil eden personel
+        
         $fine->save();
         
         return redirect()->route('admin.fines.index')
@@ -162,5 +189,44 @@ class FineController extends Controller
         
         // Alternatif olarak, geçici bir çözüm olarak session'dan al
         return session('overdue_fine_per_day', 1.0);
+    }
+    
+    /**
+     * Yeni ceza oluştur
+     */
+    public function store(Request $request)
+    {
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'book_id' => 'required|exists:books,id',
+            'borrowing_id' => 'nullable|exists:borrowings,id',
+            'fine_amount' => 'required|numeric|min:0',
+            'reason' => 'required|string',
+            'notes' => 'nullable|string',
+        ]);
+        
+        $fine = new Fine();
+        $fine->user_id = $request->user_id;
+        $fine->book_id = $request->book_id;
+        $fine->borrowing_id = $request->borrowing_id;
+        $fine->days_late = 0; // Manuel girilen cezalar için varsayılan 0
+        $fine->fine_amount = $request->fine_amount;
+        $fine->paid = $request->has('paid');
+        
+        if ($request->has('paid')) {
+            $fine->paid_at = now();
+            $fine->payment_method = 'cash'; // Varsayılan ödeme yöntemi
+            $fine->collected_by = auth()->id();
+        }
+        
+        // Notları ekleme
+        if ($request->filled('notes')) {
+            $fine->payment_notes = $request->notes;
+        }
+        
+        $fine->save();
+        
+        return redirect()->route('admin.fines.index')
+            ->with('success', 'Ceza başarıyla eklendi.');
     }
 } 

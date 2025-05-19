@@ -40,13 +40,6 @@
                                     <i class="fas fa-search"></i> Ara
                                 </button>
                             </div>
-                            <div class="mt-2">
-                                <button type="button" class="btn btn-sm btn-secondary" id="testDirectUrl">Test URL (/staff/books/search)</button>
-                                <button type="button" class="btn btn-sm btn-secondary" id="testRouteUrl">Test Route (books.search)</button>
-                                <button type="button" class="btn btn-sm btn-secondary" id="testNamedUrl">Test Named Route (staff.books.search)</button>
-                                <button type="button" class="btn btn-sm btn-secondary" id="testServerStatus">Test Server Status</button>
-                                <button type="button" class="btn btn-sm btn-primary" id="checkBooks">Kitapları Kontrol Et</button>
-                            </div>
                             <div id="searchResult" class="mt-2"></div>
                         </div>
                     </div>
@@ -225,13 +218,6 @@
                 </div>
             </form>
             
-            <!-- Debug information -->
-            <div class="mt-4 p-3 bg-light rounded small">
-                <h6>Route Debug Info (Development Only)</h6>
-                <p><strong>staff.books.search:</strong> {{ route('staff.books.search') }}</p>
-                <p><strong>books.search:</strong> {{ route('books.search', ['isbn' => '123']) }}</p>
-                <p><strong>Current URL:</strong> {{ url()->current() }}</p>
-            </div>
         </div>
     </div>
 </div>
@@ -247,120 +233,6 @@ $(document).ready(function() {
             'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
         }
     });
-    
-    // Log CSRF token for debugging
-    console.log('CSRF Token available:', $('meta[name="csrf-token"]').length > 0);
-    
-    // Test server status
-    $('#testServerStatus').click(function() {
-        $('#searchResult').html('<div class="alert alert-info">Server durumu kontrol ediliyor...</div>');
-        
-        $.ajax({
-            url: '/staff/test-search',
-            type: 'GET',
-            dataType: 'json',
-            success: function(response) {
-                console.log('Server test response:', response);
-                $('#searchResult').html(
-                    '<div class="alert alert-success">' +
-                    'Server aktif! Yanıt: ' + JSON.stringify(response) +
-                    '</div>'
-                );
-            },
-            error: function(xhr, status, error) {
-                console.error('Server test error:', xhr, status, error);
-                $('#searchResult').html(
-                    '<div class="alert alert-danger">' +
-                    'Server hatası! Status: ' + xhr.status + ' - ' + xhr.statusText +
-                    '</div>'
-                );
-            }
-        });
-    });
-    
-    // Check books in database
-    $('#checkBooks').click(function() {
-        $('#searchResult').html('<div class="alert alert-info">Kitaplar kontrol ediliyor...</div>');
-        
-        $.ajax({
-            url: '/staff/check-books',
-            type: 'GET',
-            dataType: 'json',
-            success: function(response) {
-                console.log('Books check response:', response);
-                if (response.message && response.message === 'Test kitap oluşturuldu!') {
-                    $('#searchResult').html(
-                        '<div class="alert alert-success">' +
-                        'Test kitap oluşturuldu! ISBN: ' + response.isbn + '<br>' +
-                        'Bu ISBN ile arama yapabilirsiniz.' +
-                        '</div>'
-                    );
-                    $('#isbn').val(response.isbn);
-                } else {
-                    var booksList = '';
-                    if (response.books && response.books.length > 0) {
-                        booksList = '<ul>';
-                        response.books.forEach(function(book) {
-                            booksList += '<li><strong>' + book.title + '</strong> (ISBN: ' + book.isbn + ')</li>';
-                        });
-                        booksList += '</ul>';
-                    }
-                    
-                    $('#searchResult').html(
-                        '<div class="alert alert-success">' +
-                        'Veritabanında ' + response.count + ' kitap bulundu.' + 
-                        booksList +
-                        '</div>'
-                    );
-                    
-                    if (response.first_isbn) {
-                        $('#isbn').val(response.first_isbn);
-                    }
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('Books check error:', xhr, status, error);
-                $('#searchResult').html(
-                    '<div class="alert alert-danger">' +
-                    'Kitap kontrolü sırasında hata oluştu! Status: ' + xhr.status + ' - ' + xhr.statusText +
-                    '</div>'
-                );
-            }
-        });
-    });
-    
-    // Test buttons
-    $('#testDirectUrl').click(function() {
-        testSearch('/staff/books/search');
-    });
-    
-    $('#testRouteUrl').click(function() {
-        testSearch('{{ route("books.search", ["isbn" => "123"]) }}');
-    });
-    
-    $('#testNamedUrl').click(function() {
-        testSearch('{{ route("staff.books.search") }}');
-    });
-    
-    function testSearch(url) {
-        console.log('Testing search with URL:', url);
-        $('#searchResult').html('<div class="alert alert-info">Testing URL: ' + url + '...</div>');
-        
-        $.ajax({
-            url: url,
-            type: 'GET',
-            data: { isbn: '9789750719387' }, // Test ISBN
-            dataType: 'json',
-            success: function(response) {
-                console.log('Test response:', response);
-                $('#searchResult').html('<div class="alert alert-success">Test successful! Check console for details.</div>');
-            },
-            error: function(xhr, status, error) {
-                console.error('Test error:', xhr, status, error);
-                $('#searchResult').html('<div class="alert alert-danger">Test failed: ' + xhr.status + ' - ' + xhr.statusText + '<br>URL: ' + url + '</div>');
-            }
-        });
-    }
     
     // Bu fonksiyon otomatik barkod oluşturur
     function generateBarcode(isbn) {
@@ -396,24 +268,12 @@ $(document).ready(function() {
         // Sonuç alanını temizle
         $('#searchResult').html('');
 
-        console.log('Sending search request for ISBN:', isbn);
-        
-        // Kesin çalışan URL ile kitap ara
-        var searchUrl = '/staff/books/search';
-        console.log('Search URL:', searchUrl);
-
         // AJAX ile kitap ara
         $.ajax({
-            url: searchUrl,
+            url: '/staff/stocks/search/' + isbn,
             type: 'GET',
-            data: { isbn: isbn },
             dataType: 'json',
-            beforeSend: function(xhr) {
-                // Log that the request is being sent
-                console.log('Sending request to:', this.url, 'with data:', this.data);
-            },
             success: function(response) {
-                console.log('Search response:', response);
                 // Arama düğmesini normal haline getir
                 $('#searchIsbn').html('<i class="fas fa-search"></i> Ara');
                 $('#searchIsbn').prop('disabled', false);
@@ -457,8 +317,6 @@ $(document).ready(function() {
                 }
             },
             error: function(xhr, status, error) {
-                console.error('Search error:', xhr.status, status, error);
-                console.error('Response text:', xhr.responseText);
                 // Arama düğmesini normal haline getir
                 $('#searchIsbn').html('<i class="fas fa-search"></i> Ara');
                 $('#searchIsbn').prop('disabled', false);
@@ -472,13 +330,6 @@ $(document).ready(function() {
                     $('#searchResult').html('<div class="alert alert-warning">Kitap bulunamadı. Lütfen geçerli bir ISBN girin.</div>');
                 } else {
                     $('#searchResult').html('<div class="alert alert-danger">Sunucu hatası: ' + xhr.status + ' - ' + xhr.statusText + '</div>');
-                }
-                
-                // Try fallback if AJAX fails
-                if (xhr.status !== 404) {
-                    console.log('Trying fallback...');
-                    $('#searchResult').append('<div class="alert alert-info mt-2">Otomatik fallback deneniyor...</div>');
-                    window.open('/staff/books/search-fallback?isbn=' + isbn, '_blank');
                 }
             }
         });

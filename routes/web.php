@@ -29,11 +29,10 @@ use App\Http\Controllers\Staff\StockController as StaffStockController;
 use App\Http\Controllers\Librarian\DashboardController as LibrarianDashboardController;
 use App\Http\Controllers\Librarian\SearchController;
 use App\Http\Controllers\Librarian\BookController as LibrarianBookController;
-use App\Http\Controllers\Librarian\CategoryController;
-use App\Http\Controllers\Librarian\BorrowingController as LibrarianBorrowingController;
-use App\Http\Controllers\Librarian\ReturnController;
-use App\Http\Controllers\Librarian\MemberController as LibrarianMemberController;
-use App\Http\Controllers\Librarian\ActivityController;
+// use App\Http\Controllers\Librarian\BorrowingController as LibrarianBorrowingController;
+// use App\Http\Controllers\Librarian\ReturnController;
+// use App\Http\Controllers\Librarian\MemberController as LibrarianMemberController;
+// use App\Http\Controllers\Librarian\ActivityController;
 
 /*
 |--------------------------------------------------------------------------
@@ -149,6 +148,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
 
     // Ceza İşlemleri
     Route::get('/fines', [App\Http\Controllers\Admin\FineController::class, 'index'])->name('fines.index');
+    Route::post('/fines', [App\Http\Controllers\Admin\FineController::class, 'store'])->name('fines.store');
     Route::get('/fines/{fine}', [App\Http\Controllers\Admin\FineController::class, 'show'])->name('fines.show');
     Route::put('/fines/{fine}/mark-as-paid', [App\Http\Controllers\Admin\FineController::class, 'markAsPaid'])->name('fines.mark-as-paid');
     Route::put('/fines/{fine}/forgive', [App\Http\Controllers\Admin\FineController::class, 'forgive'])->name('fines.forgive');
@@ -164,6 +164,10 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
 
     // Edinme Türleri
     Route::resource('acquisition-types', AcquisitionTypeController::class);
+    
+    // Borrowing API endpoints
+    Route::get('/users/{user}/borrowings', [AdminBorrowingController::class, 'getUserBorrowings'])->name('api.users.borrowings');
+    Route::get('/borrowings/{borrowing}', [AdminBorrowingController::class, 'getBorrowingDetails'])->name('api.borrowings.show');
 });
 
 // Memur Panel
@@ -223,8 +227,9 @@ Route::middleware(['auth'])->prefix('staff')->name('staff.')->group(function () 
     
     // Stok Yönetimi
     Route::resource('stocks', StaffStockController::class);
+    Route::get('stocks/search/{isbn}', [StaffStockController::class, 'searchBook'])->name('stocks.search-book');
     
-    // Kitap Arama Routes - Ana ve Fallback
+    // Kitap Arama Routes 
     Route::get('books/search', [StaffBookController::class, 'search'])->name('books.search');
     Route::get('books/search-fallback', [StaffBookController::class, 'searchFallback'])->name('books.search-fallback');
     
@@ -260,25 +265,22 @@ Route::middleware(['auth', 'librarian'])->prefix('librarian')->name('librarian.'
     
     // Kitap İşlemleri
     Route::resource('books', LibrarianBookController::class);
-    Route::resource('categories', CategoryController::class);
-    Route::resource('authors', App\Http\Controllers\Librarian\AuthorController::class);
+    // Route::resource('categories', CategoryController::class);
+    // Route::resource('authors', App\Http\Controllers\Librarian\AuthorController::class);
     
     // Ödünç İşlemleri
-    Route::resource('borrowings', LibrarianBorrowingController::class);
-    Route::get('/returns/create', [ReturnController::class, 'create'])->name('returns.create');
-    Route::post('/returns', [ReturnController::class, 'store'])->name('returns.store');
-    Route::get('/overdue', [LibrarianBorrowingController::class, 'overdue'])->name('overdue');
+    // Route::resource('borrowings', LibrarianBorrowingController::class);
+    // Route::get('/returns/create', [ReturnController::class, 'create'])->name('returns.create');
+    // Route::post('/returns', [ReturnController::class, 'store'])->name('returns.store');
+    // Route::get('/overdue', [LibrarianBorrowingController::class, 'overdue'])->name('overdue');
     
     // Stok Yönetimi
-    Route::resource('stocks', App\Http\Controllers\Librarian\StockController::class);
-    Route::get('/shelf-management', [App\Http\Controllers\Librarian\ShelfManagementController::class, 'index'])->name('shelf-management.index');
-    Route::post('/shelf-management/assign', [App\Http\Controllers\Librarian\ShelfManagementController::class, 'assign'])->name('shelf-management.assign');
-    
-    // Üye İşlemleri
-    Route::resource('members', LibrarianMemberController::class);
+    // Route::resource('stocks', App\Http\Controllers\Librarian\StockController::class);
+    // Route::get('/shelf-management', [App\Http\Controllers\Librarian\ShelfManagementController::class, 'index'])->name('shelf-management.index');
+    // Route::post('/shelf-management/assign', [App\Http\Controllers\Librarian\ShelfManagementController::class, 'assign'])->name('shelf-management.assign');
     
     // Etkinlik Kaydı
-    Route::get('/activities', [ActivityController::class, 'index'])->name('activities.index');
+    // Route::get('/activities', [ActivityController::class, 'index'])->name('activities.index');
 });
 
 // Test routes for debugging

@@ -10,7 +10,9 @@ class PublisherController extends Controller
 {
     public function index()
     {
-        $publishers = Publisher::orderBy('name')->paginate(10);
+        $publishers = Publisher::select('id', 'name', 'address', 'phone', 'email')
+            ->orderBy('id', 'asc')
+            ->paginate(10);
         return view('admin.publishers.index', compact('publishers'));
     }
 
@@ -25,6 +27,7 @@ class PublisherController extends Controller
             'name' => 'required|string|max:255',
             'address' => 'nullable|string|max:500',
             'phone' => 'nullable|string|max:20',
+            'email' => 'nullable|email|max:255',
         ]);
 
         Publisher::create($validated);
@@ -44,6 +47,7 @@ class PublisherController extends Controller
             'name' => 'required|string|max:255',
             'address' => 'nullable|string|max:500',
             'phone' => 'nullable|string|max:20',
+            'email' => 'nullable|email|max:255',
         ]);
 
         $publisher->update($validated);

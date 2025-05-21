@@ -9,9 +9,15 @@
         </a>
     </div>
 
+    @if(session('error'))
+        <div class="alert alert-danger">
+            {{ session('error') }}
+        </div>
+    @endif
+
     <div class="card shadow mb-4">
         <div class="card-body">
-            <form action="{{ route('admin.authors.store') }}" method="POST">
+            <form method="POST" action="{{ route('admin.authors.store') }}" id="authorForm">
                 @csrf
                 
                 <div class="row">
@@ -47,4 +53,40 @@
         </div>
     </div>
 </div>
+@endsection
+
+@section('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('authorForm');
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const submitButton = form.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        
+        fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Accept': 'application/json'
+            },
+            body: new FormData(form)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = data.redirect;
+            } else {
+                throw new Error('İşlem başarısız');
+            }
+        })
+        .catch(error => {
+            submitButton.disabled = false;
+            alert('Bir hata oluştu. Lütfen tekrar deneyin.');
+        });
+    });
+});
+</script>
 @endsection 

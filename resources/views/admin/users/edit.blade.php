@@ -98,35 +98,12 @@
                         <div class="form-group">
                             <label for="role">Kullanıcı Rolü <span class="text-danger">*</span></label>
                             <select class="form-control @error('role') is-invalid @enderror" id="role" name="role" required>
-                                <option value="user" {{ (old('role', $user->role) == 'user') ? 'selected' : '' }}>Kullanıcı</option>
-                                <option value="admin" {{ (old('role', $user->role) == 'admin') ? 'selected' : '' }}>Yönetici</option>
+                                <option value="user" {{ old('role', $user->role) == 'user' ? 'selected' : '' }}>Kullanıcı</option>
+                                <option value="admin" {{ old('role', $user->role) == 'admin' ? 'selected' : '' }}>Yönetici</option>
                             </select>
                             @error('role')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="profile_photo">Profil Fotoğrafı</label>
-                            <div class="custom-file">
-                                <input type="file" class="custom-file-input @error('profile_photo') is-invalid @enderror" id="profile_photo" name="profile_photo">
-                                <label class="custom-file-label" for="profile_photo">Dosya seçin</label>
-                                @error('profile_photo')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-                            
-                            @if($user->profile_photo)
-                            <div class="mt-2">
-                                <img src="{{ asset('storage/' . $user->profile_photo) }}" alt="{{ $user->name }}" class="img-thumbnail" style="max-height: 100px;">
-                                <div class="custom-control custom-checkbox mt-1">
-                                    <input type="checkbox" class="custom-control-input" id="remove_photo" name="remove_photo" value="1">
-                                    <label class="custom-control-label text-danger" for="remove_photo">Fotoğrafı kaldır</label>
-                                </div>
-                            </div>
-                            @endif
                         </div>
                     </div>
                 </div>

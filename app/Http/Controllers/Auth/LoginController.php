@@ -8,6 +8,7 @@ use Illuminate\Foundation\Auth\AuthenticatesUsers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 
 class LoginController extends Controller
 {
@@ -32,15 +33,12 @@ class LoginController extends Controller
             'password' => ['required'],
         ]);
 
-        $user = User::where('email', $credentials['email'])->first();
-
-        if ($user && $user->password === md5($credentials['password'])) {
-            Auth::login($user, $request->boolean('remember'));
+        if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
             
-            if ($user->hasRole('admin')) {
+            if (Auth::user()->hasRole('admin')) {
                 return redirect()->intended('/admin/dashboard');
-            } elseif ($user->hasRole('staff')) {
+            } elseif (Auth::user()->hasRole('staff')) {
                 return redirect()->intended('/staff/dashboard');
             }
             

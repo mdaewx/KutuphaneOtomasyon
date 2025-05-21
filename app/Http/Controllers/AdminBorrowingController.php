@@ -15,7 +15,7 @@ class AdminBorrowingController extends Controller
      */
     public function index()
     {
-        $borrowings = Borrowing::with(['user', 'book'])->latest()->get();
+        $borrowings = Borrowing::with(['user', 'book'])->orderBy('created_at', 'asc')->get();
         
         // Sadece normal kullanıcıları al (admin ve personel olmayan)
         $users = User::select('id', 'name', 'email')
@@ -299,7 +299,7 @@ class AdminBorrowingController extends Controller
     {
         $borrowings = Borrowing::with(['book'])
             ->where('user_id', $user->id)
-            ->orderBy('created_at', 'desc')
+            ->orderBy('created_at', 'asc')
             ->get()
             ->map(function($borrowing) {
                 return [

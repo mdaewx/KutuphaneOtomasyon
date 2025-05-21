@@ -105,7 +105,7 @@ $(document).ready(function() {
         language: {
             url: '//cdn.datatables.net/plug-ins/1.10.24/i18n/Turkish.json'
         },
-        order: [[0, 'desc']],
+        order: [[0, 'asc']],
         pageLength: 25,
         columnDefs: [
             {

@@ -15,26 +15,11 @@ class FineController extends Controller
      */
     public function index()
     {
-        // Tüm cezaları ve gecikmiş ödünçleri al
-        $fines = Fine::with(['user', 'book'])->orderBy('created_at', 'desc')->get();
-        
-        // Gecikmiş ama henüz iade edilmemiş kitaplar
-        $overdueBorrowings = Borrowing::with(['user', 'book'])
-            ->whereNull('returned_at')
-            ->where('due_date', '<', now())
-            ->orderBy('due_date', 'asc')
+        $fines = Fine::with(['borrowing.user', 'borrowing.book'])
+            ->latest()
             ->get();
-            
-        // Her gecikmiş ödünç için potansiyel ceza hesapla
-        foreach ($overdueBorrowings as $borrowing) {
-            $borrowing->potential_fine = $borrowing->calculateFine($this->getDailyFineRate());
-            $borrowing->overdue_days = $borrowing->getOverdueDays();
-        }
-        
-        // Günlük ceza tutarı
-        $dailyFineRate = $this->getDailyFineRate();
-        
-        return view('staff.fines.index', compact('fines', 'overdueBorrowings', 'dailyFineRate'));
+
+        return view('staff.fines.index', compact('fines'));
     }
 
     /**
@@ -118,5 +103,46 @@ class FineController extends Controller
     {
         // Get from session for now (eventually this should be in settings table)
         return session('overdue_fine_per_day', 1.0);
+    }
+
+    public function approve(Request $request, Fine $fine)
+    {
+        $validated = $request->validate([
+            'payment_method' => 'required|in:cash,bank_transfer',
+            'payment_reference' => 'required|string',
+            'admin_notes' => 'nullable|string'
+        ]);
+
+        $fine->update([
+            'payment_status' => 'paid',
+            'payment_method' => $validated['payment_method'],
+            'payment_reference' => $validated['payment_reference'],
+            'admin_notes' => $validated['admin_notes'],
+            'paid_at' => now(),
+            'approved_at' => now(),
+            'approved_by' => auth()->id()
+        ]);
+
+        return redirect()
+            ->route('staff.fines.index')
+            ->with('success', 'Ceza ödemesi başarıyla onaylandı.');
+    }
+
+    public function cancel(Request $request, Fine $fine)
+    {
+        $validated = $request->validate([
+            'admin_notes' => 'required|string'
+        ]);
+
+        $fine->update([
+            'payment_status' => 'cancelled',
+            'admin_notes' => $validated['admin_notes'],
+            'approved_at' => now(),
+            'approved_by' => auth()->id()
+        ]);
+
+        return redirect()
+            ->route('staff.fines.index')
+            ->with('success', 'Ceza kaydı iptal edildi.');
     }
 }

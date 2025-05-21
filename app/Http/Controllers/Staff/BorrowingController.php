@@ -3,9 +3,13 @@
 namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Models\Book;
 use App\Models\Borrowing;
+use App\Models\Fine;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Storage;
 
 class BorrowingController extends Controller
 {
@@ -20,7 +24,7 @@ class BorrowingController extends Controller
     {
         $this->checkStaffAccess($request);
         
-        $query = Borrowing::with(['user', 'book', 'stock']);
+        $query = Borrowing::with(['user', 'book', 'book.authors']);
         
         // Kitap adı araması
         if ($request->filled('book')) {
@@ -130,8 +134,7 @@ class BorrowingController extends Controller
     {
         $this->checkStaffAccess($request);
         
-        // Validasyon
-        $validated = $request->validate([
+        $validatedData = $request->validate([
             'user_id' => 'required|exists:users,id',
             'book_id' => 'required|exists:books,id',
             'borrow_date' => 'required|date',
@@ -139,52 +142,37 @@ class BorrowingController extends Controller
             'notes' => 'nullable|string',
             'auto_approve' => 'nullable|boolean'
         ]);
-        
-        // Kitap için mevcut bir stok var mı kontrol et
-        $book = \App\Models\Book::find($validated['book_id']);
-        if (!$book->isAvailable()) {
-            return redirect()->back()->with('error', 'Bu kitap şu anda stokta mevcut değil.')->withInput();
-        }
-        
-        // Kitabın tüm kullanılabilir stoklarını al
-        $availableStocks = $book->stocks()
-            ->where(function($q) {
-                $q->where('is_available', true)
-                  ->orWhere('status', 'available');
-            })
+
+        // Kitabın uygun kopyası var mı kontrol et
+        $book = Book::findOrFail($validatedData['book_id']);
+        $availableStock = $book->stocks()
+            ->where('status', 'available')
             ->whereDoesntHave('borrowings', function($query) {
                 $query->whereNull('returned_at');
             })
-            ->get();
-        
-        if ($availableStocks->isEmpty()) {
-            return redirect()->back()->with('error', 'Bu kitap için uygun stok bulunamadı.')->withInput();
+            ->first();
+
+        if (!$availableStock) {
+            return back()->withErrors(['book_id' => 'Bu kitabın uygun kopyası kalmamıştır.']);
         }
-        
-        // Kitabın ilk uygun stok kaydını seç (burada çoklu stok seçimi için form geliştirilebilir)
-        $stock = $availableStocks->first();
-        
-        // Ödünç kaydı oluştur
-        $borrowing = new \App\Models\Borrowing();
-        $borrowing->user_id = $validated['user_id'];
-        $borrowing->book_id = $validated['book_id'];
-        $borrowing->stock_id = $stock->id;
-        $borrowing->borrow_date = $validated['borrow_date'];
-        $borrowing->due_date = $validated['due_date'];
-        
-        // Otomatik onay kontrolü
-        $borrowing->status = $request->has('auto_approve') ? 'approved' : 'pending';
-        
-        $borrowing->notes = $validated['notes'] ?? null;
+
+        // Ödünç verme kaydı oluştur
+        $borrowing = new Borrowing();
+        $borrowing->user_id = $validatedData['user_id'];
+        $borrowing->book_id = $validatedData['book_id'];
+        $borrowing->stock_id = $availableStock->id;
+        $borrowing->borrow_date = $validatedData['borrow_date'];
+        $borrowing->due_date = $validatedData['due_date'];
+        $borrowing->notes = $validatedData['notes'];
+        $borrowing->status = $request->input('auto_approve', true) ? 'approved' : 'pending';
         $borrowing->save();
-        
-        // Kitap durumunu güncelle
-        if ($borrowing->status === 'approved') {
-            $stock->is_available = false;
-            $stock->save();
-        }
-        
-        return redirect()->route('staff.borrowings.index')->with('success', 'Ödünç kaydı başarıyla oluşturuldu.');
+
+        // Stok durumunu güncelle
+        $availableStock->status = 'borrowed';
+        $availableStock->save();
+
+        return redirect()->route('staff.borrowings.index')
+            ->with('success', 'Ödünç verme işlemi başarıyla kaydedildi.');
     }
 
     public function show(Request $request, Borrowing $borrowing)
@@ -204,44 +192,98 @@ class BorrowingController extends Controller
         $this->checkStaffAccess($request);
         
         $validated = $request->validate([
-            'status' => 'required|in:pending,approved,returned,cancelled',
+            'borrow_date' => 'required|date',
+            'due_date' => 'required|date|after:borrow_date',
             'returned_at' => 'nullable|date',
-            'due_date' => 'nullable|date',
+            'status' => 'required|in:pending,approved,returned,cancelled',
             'notes' => 'nullable|string',
-            'fine_amount' => 'nullable|numeric|min:0'
+            'payment_method' => 'required_if:status,returned',
+            'payment_reference' => 'required_if:status,returned',
+            'damage_level' => 'nullable|in:minor,moderate,severe',
+            'damage_description' => 'required_if:damage_level,minor,moderate,severe',
+            'damage_photos.*' => 'nullable|image|max:2048' // Her fotoğraf max 2MB
         ]);
-        
-        // Handle returned status
-        if ($validated['status'] === 'returned' && !$borrowing->returned_at) {
-            $validated['returned_at'] = $validated['returned_at'] ?? now();
-            
-            // Update the stock availability
-            if ($borrowing->stock) {
-                $borrowing->stock->is_available = true;
-                $borrowing->stock->save();
+
+        // Eğer kitap iade ediliyorsa
+        if ($validated['status'] === 'returned' && $validated['returned_at']) {
+            $returnedAt = Carbon::parse($validated['returned_at']);
+            $dueDate = Carbon::parse($validated['due_date']);
+            $fines = [];
+
+            // 1. Gecikme Cezası Kontrolü
+            if ($returnedAt->gt($dueDate)) {
+                $lateDays = $returnedAt->diffInDays($dueDate);
+                $fineAmount = $lateDays * 1; // Günlük 1 TL ceza
+
+                // Gecikme cezası oluştur
+                $fines[] = Fine::create([
+                    'borrowing_id' => $borrowing->id,
+                    'amount' => $fineAmount,
+                    'payment_status' => 'pending',
+                    'payment_method' => $request->payment_method,
+                    'payment_reference' => $request->payment_reference,
+                    'is_damage_fine' => false
+                ]);
             }
-            
-            // Calculate fine if book is returned late
-            if ($validated['returned_at'] > $borrowing->due_date) {
-                $dueDate = \Carbon\Carbon::parse($borrowing->due_date);
-                $returnedDate = \Carbon\Carbon::parse($validated['returned_at']);
-                $daysLate = $dueDate->diffInDays($returnedDate);
+
+            // 2. Hasar Cezası Kontrolü
+            if ($request->filled('damage_level')) {
+                // Hasar seviyesine göre ceza oranı
+                $damageRates = [
+                    'minor' => 0.25, // %25
+                    'moderate' => 0.50, // %50
+                    'severe' => 1.00 // %100
+                ];
+
+                // Kitabın değeri (örnek olarak 50 TL)
+                $bookValue = $borrowing->book->price ?? 50;
                 
-                // Calculate fine (adjust the daily fine amount as needed)
-                $dailyFine = 1.00; // 1 TL per day
-                $fine = $daysLate * $dailyFine;
-                
-                // Update fine amount if not explicitly set
-                if (!isset($validated['fine_amount'])) {
-                    $validated['fine_amount'] = $fine;
+                // Hasar cezası hesapla
+                $damageAmount = $bookValue * $damageRates[$request->damage_level];
+
+                // Hasar fotoğraflarını kaydet
+                $photosPaths = [];
+                if ($request->hasFile('damage_photos')) {
+                    foreach ($request->file('damage_photos') as $photo) {
+                        $path = $photo->store('damage-photos', 'public');
+                        $photosPaths[] = $path;
+                    }
+                }
+
+                // Hasar cezası oluştur
+                $fines[] = Fine::create([
+                    'borrowing_id' => $borrowing->id,
+                    'amount' => $damageAmount,
+                    'payment_status' => 'pending',
+                    'payment_method' => $request->payment_method,
+                    'payment_reference' => $request->payment_reference,
+                    'is_damage_fine' => true,
+                    'damage_level' => $request->damage_level,
+                    'damage_description' => $request->damage_description,
+                    'damage_photos' => $photosPaths
+                ]);
+            }
+
+            // Ceza ödemeleri yapıldıysa
+            if ($request->payment_method && $request->payment_reference) {
+                foreach ($fines as $fine) {
+                    $fine->update([
+                        'payment_status' => 'paid',
+                        'paid_at' => now(),
+                        'approved_at' => now(),
+                        'approved_by' => auth()->id()
+                    ]);
                 }
             }
+
+            // Kitabı stoğa geri al
+            $borrowing->stock->update(['status' => 'available']);
         }
-        
-        // Update borrowing
+
         $borrowing->update($validated);
-        
-        return redirect()->route('staff.borrowings.index')
+
+        return redirect()
+            ->route('staff.borrowings.index')
             ->with('success', 'Ödünç kaydı başarıyla güncellendi.');
     }
 
@@ -263,5 +305,27 @@ class BorrowingController extends Controller
         
         return redirect()->route('staff.borrowings.index')
             ->with('success', 'Ödünç kaydı başarıyla silindi.');
+    }
+
+    public function searchUser(Request $request)
+    {
+        $this->checkStaffAccess($request);
+        $term = $request->input('term');
+        
+        if (empty($term) || strlen($term) < 2) {
+            return response()->json([]);
+        }
+        
+        $users = User::where(function($query) use ($term) {
+            $query->where('name', 'LIKE', "%{$term}%")
+                  ->orWhere('email', 'LIKE', "%{$term}%");
+        })
+        ->where('is_admin', 0)
+        ->where('is_staff', 0)
+        ->select('id', 'name', 'email')
+        ->limit(10)
+        ->get();
+        
+        return response()->json($users);
     }
 } 

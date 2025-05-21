@@ -10,7 +10,16 @@ class AuthorController extends Controller
 {
     public function index()
     {
-        $authors = Author::orderBy('name')->paginate(10);
+        $authors = Author::orderBy('id', 'asc')
+            ->paginate(10);
+
+        $startingNumber = ($authors->currentPage() - 1) * $authors->perPage() + 1;
+        
+        $authors->getCollection()->transform(function ($author) use (&$startingNumber) {
+            $author->row_number = $startingNumber++;
+            return $author;
+        });
+        
         return view('admin.authors.index', compact('authors'));
     }
 
@@ -21,15 +30,35 @@ class AuthorController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'surname' => 'required|string|max:255',
-        ]);
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'surname' => 'required|string|max:255',
+            ]);
 
-        Author::create($validated);
+            $author = Author::create($validated);
 
-        return redirect()->route('admin.authors.index')
-            ->with('success', 'Yazar başarıyla eklendi.');
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Yazar başarıyla eklendi.',
+                    'redirect' => route('admin.authors.index')
+                ]);
+            }
+
+            return redirect()->route('admin.authors.index')
+                ->with('success', 'Yazar başarıyla eklendi.');
+        } catch (\Exception $e) {
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Yazar eklenirken bir hata oluştu.',
+                    'errors' => $e->getMessage()
+                ], 422);
+            }
+
+            return back()->withInput()->with('error', 'Yazar eklenirken bir hata oluştu.');
+        }
     }
 
     public function edit(Author $author)

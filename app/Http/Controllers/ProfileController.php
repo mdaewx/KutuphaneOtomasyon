@@ -51,11 +51,6 @@ class ProfileController extends Controller
             'email' => 'required|string|email|max:255|unique:users,email,'.$user->id,
             'current_password' => 'nullable|required_with:new_password',
             'new_password' => 'nullable|min:8|confirmed',
-            'profile_photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', // 2MB maksimum boyut
-        ], [
-            'profile_photo.image' => 'Dosya bir resim olmalıdır.',
-            'profile_photo.mimes' => 'Dosya jpeg, png, jpg veya gif formatında olmalıdır.',
-            'profile_photo.max' => 'Dosya boyutu en fazla 2MB olabilir.',
         ]);
 
         $user->name = $validatedData['name'];
@@ -66,30 +61,6 @@ class ProfileController extends Controller
                 return back()->withErrors(['current_password' => 'Mevcut şifre yanlış']);
             }
             $user->password = Hash::make($request->new_password);
-        }
-        
-        // Profil fotoğrafı yükleme işlemi
-        if ($request->hasFile('profile_photo') && $request->file('profile_photo')->isValid()) {
-            try {
-                // Eğer daha önce bir profil fotoğrafı varsa sil
-                if ($user->profile_photo) {
-                    $oldPhotoPath = 'public/profiles/' . $user->profile_photo;
-                    if (Storage::exists($oldPhotoPath)) {
-                        Storage::delete($oldPhotoPath);
-                    }
-                }
-                
-                // Dosya adını güvenli hale getir
-                $fileName = pathinfo($request->file('profile_photo')->getClientOriginalName(), PATHINFO_FILENAME);
-                $fileName = Str::slug($fileName) . '_' . time() . '.' . $request->file('profile_photo')->getClientOriginalExtension();
-                
-                // Yeni fotoğrafı kaydet
-                $path = $request->file('profile_photo')->storeAs('profiles', $fileName, 'public');
-                $user->profile_photo = basename($path);
-                
-            } catch (\Exception $e) {
-                return back()->withErrors(['profile_photo' => 'Fotoğraf yüklenirken bir hata oluştu: ' . $e->getMessage()]);
-            }
         }
 
         $user->save();

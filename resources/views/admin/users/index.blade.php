@@ -63,11 +63,9 @@
                         <tr>
                             <td>{{ $user->id }}</td>
                             <td class="text-center">
-                                @if($user->profile_photo)
-                                <img src="{{ asset('storage/' . $user->profile_photo) }}" alt="{{ $user->name }}" class="rounded-circle" width="40" height="40">
-                                @else
-                                <img src="{{ asset('img/default-user.png') }}" alt="{{ $user->name }}" class="rounded-circle" width="40" height="40">
-                                @endif
+                                <div class="rounded-circle bg-light d-inline-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                    <span class="h6 m-0">{{ substr($user->name, 0, 2) }}</span>
+                                </div>
                             </td>
                             <td>{{ $user->name }} {{ $user->surname }}</td>
                             <td>{{ $user->email }}</td>

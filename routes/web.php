@@ -69,16 +69,15 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'index'])->name('profile');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::post('/profile/return-book/{borrowing}', [ProfileController::class, 'returnBook'])->name('profile.return-book');
+
+    // Kullanıcı cezaları
+    Route::get('/fines', [App\Http\Controllers\User\FineController::class, 'index'])->name('fines.index');
 });
 
 // Admin Panel
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
-    // Dashboard
-    Route::get('/{path?}', [AdminController::class, 'dashboard'])
-        ->name('dashboard')
-        ->where('path', '^$|^dashboard$'); // Boş string veya "dashboard" kabul eder
-    
-    // Borrowings
+    Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+    Route::get('/books/repair-publishers', [AdminBookController::class, 'repairPublishers'])->name('books.repair-publishers');
     Route::get('/borrowings', [AdminBorrowingController::class, 'index'])->name('borrowings.index');
     Route::get('/borrowings/create', [AdminBorrowingController::class, 'create'])->name('borrowings.create');
     Route::post('/borrowings', [AdminBorrowingController::class, 'store'])->name('borrowings.store');
@@ -86,18 +85,17 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::put('/borrowings/{borrowing}/return', [AdminBorrowingController::class, 'returnBook'])->name('borrowings.return');
     Route::put('/borrowings/{borrowing}/update-status', [AdminBorrowingController::class, 'updateStatus'])->name('borrowings.update-status');
     Route::delete('/borrowings/{borrowing}', [AdminBorrowingController::class, 'destroy'])->name('borrowings.destroy');
+    Route::get('/api/borrowings/{borrowing}', [AdminBorrowingController::class, 'getBorrowingDetails'])->name('api.borrowings.show');
     
     // Admin Profile Management
     Route::resource('profiles', AdminProfileController::class);
     
     // Kullanıcı Yönetimi
+    Route::get('/users/search', [AdminUserController::class, 'search'])->name('users.search');
     Route::resource('users', AdminUserController::class);
     
     // Kitap Yönetimi - Explicit routes must come BEFORE resource route
-    Route::get('/books/search-query', [AdminBookController::class, 'search']);
-    Route::get('/books/check-isbn/{isbn}', [AdminBookController::class, 'checkIsbn'])->name('books.check-isbn');
     Route::get('/books/search/{isbn}', [AdminBookController::class, 'searchByIsbn'])->name('books.search');
-    Route::get('/api/books/search', [AdminBookController::class, 'search'])->name('api.books.search');
     Route::resource('books', AdminBookController::class);
     
     // Yazar Yönetimi
@@ -123,9 +121,9 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('settings/clear-cache', [AdminSettingController::class, 'clearCache'])->name('settings.clear-cache');
 
     // Stok Yönetimi
-    Route::resource('stocks', StockController::class);
     Route::get('books/search/{isbn}', [StockController::class, 'searchBook'])->name('books.search');
-
+    Route::resource('stocks', StockController::class);
+    
     // Edinme Kaynakları
     Route::resource('acquisitions', AcquisitionSourceController::class);
     Route::get('/acquisitions/source-types', [AcquisitionSourceController::class, 'sourceTypeIndex'])->name('acquisitions.source-types');
@@ -167,7 +165,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     
     // Borrowing API endpoints
     Route::get('/users/{user}/borrowings', [AdminBorrowingController::class, 'getUserBorrowings'])->name('api.users.borrowings');
-    Route::get('/borrowings/{borrowing}', [AdminBorrowingController::class, 'getBorrowingDetails'])->name('api.borrowings.show');
+    // Route::get('/borrowings/{borrowing}', [AdminBorrowingController::class, 'getBorrowingDetails'])->name('api.borrowings.show');
 });
 
 // Memur Panel
@@ -227,14 +225,15 @@ Route::middleware(['auth'])->prefix('staff')->name('staff.')->group(function () 
     
     // Stok Yönetimi
     Route::resource('stocks', StaffStockController::class);
-    Route::get('stocks/search/{isbn}', [StaffStockController::class, 'searchBook'])->name('stocks.search-book');
+    Route::get('stocks/search', [StaffStockController::class, 'searchBook'])->name('stocks.search');
     
     // Kitap Arama Routes 
     Route::get('books/search', [StaffBookController::class, 'search'])->name('books.search');
     Route::get('books/search-fallback', [StaffBookController::class, 'searchFallback'])->name('books.search-fallback');
     
     // Ödünç İşlemleri
-    Route::resource('borrowings', StaffBorrowingController::class);
+    Route::get('/borrowings/search-user', [App\Http\Controllers\Staff\BorrowingController::class, 'searchUser'])->name('borrowings.search-user');
+    Route::resource('borrowings', App\Http\Controllers\Staff\BorrowingController::class);
     
     // Kitap Yönetimi
     Route::resource('books', StaffBookController::class);
@@ -246,11 +245,9 @@ Route::middleware(['auth'])->prefix('staff')->name('staff.')->group(function () 
     Route::resource('publishers', PublisherController::class);
     
     // Ceza İşlemleri
-    Route::get('fines', [FineController::class, 'index'])->name('fines.index');
-    Route::get('fines/{fine}', [FineController::class, 'show'])->name('fines.show');
-    Route::put('fines/{fine}/mark-as-paid', [FineController::class, 'markAsPaid'])->name('fines.mark-as-paid');
-    Route::put('fines/{fine}/forgive', [FineController::class, 'forgive'])->name('fines.forgive');
-    Route::post('fines/return-overdue-book/{borrowing}', [FineController::class, 'returnOverdueBook'])->name('fines.return-overdue-book');
+    Route::get('/fines', [App\Http\Controllers\Staff\FineController::class, 'index'])->name('fines.index');
+    Route::post('/fines/{fine}/approve', [App\Http\Controllers\Staff\FineController::class, 'approve'])->name('fines.approve');
+    Route::post('/fines/{fine}/cancel', [App\Http\Controllers\Staff\FineController::class, 'cancel'])->name('fines.cancel');
 });
 
 // Test route for admin dashboard

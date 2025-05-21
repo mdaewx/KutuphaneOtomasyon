@@ -20,7 +20,7 @@ class AdminBookController extends Controller
     public function index()
     {
         $books = Book::with(['category', 'publisher', 'authors', 'stocks'])
-            ->orderBy('id', 'desc')
+            ->orderBy('id', 'asc')
             ->get();
         
         // Her kitap için mevcut durumda olduğunu belirt
@@ -39,7 +39,7 @@ class AdminBookController extends Controller
             return $book;
         });
         
-        $publishers = Publisher::orderBy('name')->get();
+        $publishers = Publisher::orderBy('id', 'asc')->get();
         return view('admin.books.index', compact('books', 'publishers'));
     }
 
@@ -49,7 +49,7 @@ class AdminBookController extends Controller
     public function create()
     {
         $categories = Category::all();
-        $publishers = Publisher::all();
+        $publishers = Publisher::orderBy('id', 'asc')->get();
         $authors = Author::all();
         return view('admin.books.create', compact('categories', 'publishers', 'authors'));
     }
@@ -275,40 +275,28 @@ class AdminBookController extends Controller
      */
     public function repairPublishers()
     {
-        // Get default publisher or create one
-        $defaultPublisher = Publisher::first();
-        if (!$defaultPublisher) {
-            $defaultPublisher = Publisher::create([
-                'name' => 'Varsayılan Yayınevi',
-                'address' => 'İstanbul',
-                'phone' => '-'
-            ]);
+        // Yayınevlerini al
+        $publishers = \App\Models\Publisher::all();
+        if ($publishers->isEmpty()) {
+            // Eğer yayınevi yoksa, PublisherSeeder'ı çalıştır
+            \Artisan::call('db:seed', ['--class' => 'PublisherSeeder']);
+            $publishers = \App\Models\Publisher::all();
         }
+
+        // Yayınevi olmayan kitapları bul
+        $booksWithoutPublisher = \App\Models\Book::whereNull('publisher_id')->get();
         
-        // Fix books with NULL publisher_id
-        $nullUpdated = Book::whereNull('publisher_id')->update([
-            'publisher_id' => $defaultPublisher->id
-        ]);
-        
-        // Fix books with invalid publisher_id
-        $validPublisherIds = Publisher::pluck('id')->toArray();
-        $orphanedUpdated = Book::whereNotIn('publisher_id', $validPublisherIds)
-            ->whereNotNull('publisher_id')
-            ->update([
-                'publisher_id' => $defaultPublisher->id
-            ]);
-        
-        // Clear model and relation caches
-        Book::flushCache();
-        Publisher::flushCache();
-        
-        // Clear Laravel caches
-        \Artisan::call('cache:clear');
-        \Artisan::call('view:clear');
-        \Artisan::call('config:clear');
-        
+        foreach ($booksWithoutPublisher as $book) {
+            // Rastgele bir yayınevi seç
+            $randomPublisher = $publishers->random();
+            
+            // Kitabın yayınevini güncelle
+            $book->publisher_id = $randomPublisher->id;
+            $book->save();
+        }
+
         return redirect()->route('admin.books.index')
-            ->with('success', "Yayınevi ilişkileri düzeltildi. Güncellenen kitap sayısı: Boş olanlar: {$nullUpdated}, Geçersiz olanlar: {$orphanedUpdated}");
+            ->with('success', 'Kitapların yayınevi bilgileri güncellendi.');
     }
 
     /**

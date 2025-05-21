@@ -12,7 +12,7 @@ class AcquisitionSourceController extends Controller
     public function index()
     {
         $sources = AcquisitionSource::with(['sourceType', 'book'])
-            ->orderBy('created_at', 'desc')
+            ->orderBy('created_at', 'asc')
             ->paginate(25);
         $types = AcquisitionSourceType::orderBy('name')->get();
 

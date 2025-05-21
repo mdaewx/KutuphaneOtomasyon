@@ -29,10 +29,29 @@
     }
     .select2-dropdown {
         z-index: 10000;
+        border: 1px solid #e3e6f0;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
     }
-    .select2-results {
-        max-height: 200px;
-        overflow-y: auto;
+    .select2-container--bootstrap4 .select2-results__option--highlighted {
+        background-color: #4e73df !important;
+    }
+    .select2-container--bootstrap4 .select2-results__option {
+        padding: 10px 15px;
+    }
+    .select2-container--bootstrap4 .select2-selection--single {
+        height: calc(1.5em + 0.75rem + 2px) !important;
+    }
+    .select2-container--bootstrap4 .select2-selection__rendered {
+        line-height: calc(1.5em + 0.75rem) !important;
+    }
+    .user-name {
+        color: #2c3338;
+        font-size: 14px;
+        margin-bottom: 2px;
+    }
+    .select2-container--bootstrap4 .select2-results__option .text-muted {
+        font-size: 12px;
+        color: #6c757d !important;
     }
     /* Form elemanları için */
     .modal select.form-select,
@@ -233,7 +252,7 @@
                         <select class="form-select" id="user_id" name="user_id" required>
                             <option value="">Kullanıcı Seçin</option>
                             @forelse($users as $user)
-                                <option value="{{ $user->id }}">{{ $user->name }} ({{ $user->email }}) - ID: {{ $user->id }}</option>
+                                <option value="{{ $user->id }}">{{ $user->name }} ({{ $user->email }})</option>
                             @empty
                                 <option value="" disabled>Kullanıcı bulunamadı</option>
                             @endforelse
@@ -331,8 +350,21 @@
             placeholder: 'Kullanıcı seçin',
             allowClear: true,
             width: '100%',
-            dropdownParent: $('#addBorrowingModal')
+            dropdownParent: $('#addBorrowingModal'),
+            templateResult: formatUserOption,
+            templateSelection: formatUserOption,
+            escapeMarkup: function(markup) {
+                return markup;
+            }
         });
+        
+        function formatUserOption(user) {
+            if (!user.id) return user.text;
+            return $('<div class="d-flex flex-column">' +
+                '<strong class="user-name">' + user.text.split(' (')[0] + '</strong>' +
+                '<small class="text-muted">' + user.text.split(' (')[1].replace(')', '') + '</small>' +
+                '</div>');
+        }
         
         // Book search functionality
         $('#book_search').on('input', function() {

@@ -27,11 +27,9 @@
             <!-- Card Body -->
             <div class="card-body">
                 <div class="text-center mb-4">
-                    @if($user->profile_photo)
-                        <img src="{{ asset('storage/profiles/' . $user->profile_photo) }}" class="img-profile rounded-circle img-thumbnail" style="width: 150px; height: 150px; object-fit: cover;">
-                    @else
-                        <img src="https://ui-avatars.com/api/?name={{ urlencode($user->name) }}&color=7F9CF5&background=EBF4FF" class="img-profile rounded-circle img-thumbnail" style="width: 150px; height: 150px; object-fit: cover;">
-                    @endif
+                    <div class="rounded-circle bg-light d-inline-flex align-items-center justify-content-center mb-3" style="width: 150px; height: 150px;">
+                        <span class="display-4">{{ substr($user->name, 0, 2) }}</span>
+                    </div>
                     <h4 class="mt-3">{{ $user->name }} {{ $user->surname }}</h4>
                     <span class="badge {{ $user->role == 'admin' ? 'bg-primary' : 'bg-secondary' }} p-2">
                         {{ $user->role == 'admin' ? 'Yönetici' : 'Kullanıcı' }}

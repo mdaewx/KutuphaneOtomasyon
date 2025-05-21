@@ -41,7 +41,7 @@ class AdminUserController extends Controller
             }
         }
 
-        $users = $query->orderBy('id', 'desc')->paginate(15);
+        $users = $query->orderBy('id', 'asc')->paginate(15);
         
         return view('admin.users.index', compact('users'));
     }
@@ -66,8 +66,7 @@ class AdminUserController extends Controller
             'phone' => ['nullable', 'string', 'max:20'],
             'address' => ['nullable', 'string', 'max:500'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'role' => ['required', 'in:user,staff,admin'],
-            'profile_photo' => ['nullable', 'image', 'max:1024'],
+            'role' => ['required', 'in:user,staff,admin']
         ]);
 
         $userData = [
@@ -80,12 +79,6 @@ class AdminUserController extends Controller
             'is_admin' => $request->role === 'admin' ? 1 : 0,
             'is_staff' => $request->role === 'staff' ? 1 : 0,
         ];
-
-        // Handle profile photo upload
-        if ($request->hasFile('profile_photo')) {
-            $path = $request->file('profile_photo')->store('profile_photos', 'public');
-            $userData['profile_photo'] = $path;
-        }
 
         $user = User::create($userData);
 
@@ -141,8 +134,7 @@ class AdminUserController extends Controller
             'phone' => ['nullable', 'string', 'max:20'],
             'address' => ['nullable', 'string', 'max:500'],
             'password' => ['nullable', 'confirmed', Rules\Password::defaults()],
-            'role' => ['required', 'in:user,staff,admin'],
-            'profile_photo' => ['nullable', 'image', 'max:1024'],
+            'role' => ['required', 'in:user,staff,admin']
         ]);
 
         $userData = [
@@ -155,27 +147,8 @@ class AdminUserController extends Controller
             'is_staff' => $request->role === 'staff' ? 1 : 0,
         ];
 
-        // Update password if provided
         if ($request->filled('password')) {
             $userData['password'] = Hash::make($request->password);
-        }
-
-        // Handle profile photo upload or removal
-        if ($request->hasFile('profile_photo')) {
-            // Delete old photo if exists
-            if ($user->profile_photo && Storage::disk('public')->exists($user->profile_photo)) {
-                Storage::disk('public')->delete($user->profile_photo);
-            }
-            
-            // Save new photo
-            $path = $request->file('profile_photo')->store('profile_photos', 'public');
-            $userData['profile_photo'] = $path;
-        } elseif ($request->has('remove_photo') && $request->remove_photo) {
-            // Delete photo if remove_photo is checked
-            if ($user->profile_photo && Storage::disk('public')->exists($user->profile_photo)) {
-                Storage::disk('public')->delete($user->profile_photo);
-            }
-            $userData['profile_photo'] = null;
         }
 
         $user->update($userData);
@@ -205,5 +178,25 @@ class AdminUserController extends Controller
 
         return redirect()->route('admin.users.index')
             ->with('success', 'Kullanıcı başarıyla silindi.');
+    }
+
+    public function search(Request $request)
+    {
+        $term = $request->input('term');
+        
+        if (empty($term) || strlen($term) < 2) {
+            return response()->json([]);
+        }
+        
+        $users = \App\Models\User::where(function($query) use ($term) {
+            $query->where('name', 'LIKE', "%{$term}%")
+                  ->orWhere('email', 'LIKE', "%{$term}%");
+        })
+        ->where('is_admin', 0) // Exclude admin users
+        ->select('id', 'name', 'email')
+        ->limit(10)
+        ->get();
+        
+        return response()->json($users);
     }
 } 

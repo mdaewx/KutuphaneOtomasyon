@@ -426,23 +426,6 @@
                         <span>Raf Düzenleme</span>
                     </a>
                 </li>
-
-                <div class="sidebar-heading">Diğer</div>
-                <hr class="sidebar-divider">
-
-                <li class="nav-item {{ request()->routeIs('admin.reports.*') ? 'active' : '' }}">
-                    <a class="nav-link" href="{{ route('admin.reports.index') }}">
-                        <i class="fas fa-chart-area"></i>
-                        <span>Raporlar</span>
-                    </a>
-                </li>
-
-                <li class="nav-item {{ request()->routeIs('admin.settings.*') ? 'active' : '' }}">
-                    <a class="nav-link" href="{{ route('admin.settings.index') }}">
-                        <i class="fas fa-cog"></i>
-                        <span>Ayarlar</span>
-                    </a>
-                </li>
             </ul>
             
             <!-- Sidebar Toggler -->

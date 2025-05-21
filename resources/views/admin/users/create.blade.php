@@ -105,19 +105,6 @@
                             @enderror
                         </div>
                     </div>
-                    
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="profile_photo">Profil Fotoğrafı</label>
-                            <div class="custom-file">
-                                <input type="file" class="custom-file-input @error('profile_photo') is-invalid @enderror" id="profile_photo" name="profile_photo">
-                                <label class="custom-file-label" for="profile_photo">Dosya seçin</label>
-                                @error('profile_photo')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-                        </div>
-                    </div>
                 </div>
                 
                 <div class="mt-4">

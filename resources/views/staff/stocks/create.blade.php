@@ -29,14 +29,14 @@
             <form action="{{ route('staff.stocks.store') }}" method="POST">
                 @csrf
                 
-                <!-- ISBN ile Kitap Ara -->
+                <!-- ISBN veya Kitap Adı ile Ara -->
                 <div class="row mb-3">
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label for="isbn">ISBN ile Kitap Ara</label>
+                            <label for="search">ISBN veya Kitap Adı ile Ara</label>
                             <div class="input-group">
-                                <input type="text" class="form-control" id="isbn" name="isbn" placeholder="ISBN numarası girin">
-                                <button type="button" class="btn btn-primary" id="searchIsbn">
+                                <input type="text" class="form-control" id="search" name="search" placeholder="ISBN veya kitap adı girin">
+                                <button type="button" class="btn btn-primary" id="searchBook">
                                     <i class="fas fa-search"></i> Ara
                                 </button>
                             </div>
@@ -67,8 +67,7 @@
                                     </div>
                                 </div>
                             </div>
-
-                            <div class="row mb-3">
+                            <div class="row">
                                 <div class="col-md-6">
                                     <div class="form-group">
                                         <label>Yazar(lar)</label>
@@ -77,32 +76,22 @@
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-group">
+                                        <label>ISBN</label>
+                                        <p class="form-control-static" id="bookIsbn"></p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
                                         <label>Yayınevi</label>
                                         <p class="form-control-static" id="bookPublisher"></p>
                                     </div>
                                 </div>
-                            </div>
-
-                            <div class="row mb-3">
                                 <div class="col-md-6">
                                     <div class="form-group">
                                         <label>Kategori</label>
                                         <p class="form-control-static" id="bookCategory"></p>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label>Yayın Yılı</label>
-                                        <p class="form-control-static" id="bookYear"></p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="row mb-3">
-                                <div class="col-md-12">
-                                    <div class="form-group">
-                                        <label>Açıklama</label>
-                                        <p class="form-control-static small" id="bookDescription"></p>
                                     </div>
                                 </div>
                             </div>
@@ -242,12 +231,12 @@ $(document).ready(function() {
     }
     
     // Arama işlemi
-    $('#searchIsbn').click(function() {
+    $('#searchBook').click(function() {
         searchBook();
     });
     
-    // ISBN alanında Enter tuşu ile arama yapma
-    $('#isbn').keydown(function(e) {
+    // Arama alanında Enter tuşu ile arama yapma
+    $('#search').keydown(function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
             searchBook();
@@ -255,28 +244,30 @@ $(document).ready(function() {
     });
     
     function searchBook() {
-        var isbn = $('#isbn').val().trim();
-        if (!isbn) {
-            alert('Lütfen bir ISBN numarası girin.');
+        var searchTerm = $('#search').val().trim();
+        if (!searchTerm) {
+            alert('Lütfen ISBN veya kitap adı girin.');
             return;
         }
 
         // Arama düğmesini devre dışı bırak
-        $('#searchIsbn').html('<i class="fas fa-spinner fa-spin"></i> Aranıyor...');
-        $('#searchIsbn').prop('disabled', true);
+        $('#searchBook').html('<i class="fas fa-spinner fa-spin"></i> Aranıyor...');
+        $('#searchBook').prop('disabled', true);
         
         // Sonuç alanını temizle
         $('#searchResult').html('');
 
         // AJAX ile kitap ara
         $.ajax({
-            url: '/staff/stocks/search/' + isbn,
+            url: '{{ route("staff.stocks.search") }}',
             type: 'GET',
-            dataType: 'json',
+            data: {
+                search: searchTerm
+            },
             success: function(response) {
                 // Arama düğmesini normal haline getir
-                $('#searchIsbn').html('<i class="fas fa-search"></i> Ara');
-                $('#searchIsbn').prop('disabled', false);
+                $('#searchBook').html('<i class="fas fa-search"></i> Ara');
+                $('#searchBook').prop('disabled', false);
                 
                 if (response.book) {
                     var book = response.book;
@@ -286,19 +277,17 @@ $(document).ready(function() {
                     
                     // Otomatik barkod oluştur ve alana yerleştir
                     if (!$('#barcode').val()) {
-                        $('#barcode').val(generateBarcode(isbn));
+                        $('#barcode').val(generateBarcode(book.isbn));
                     }
                     
                     // Kitap bilgilerini göster
                     $('#bookTitle').text(book.title || 'Başlık belirtilmemiş');
                     $('#bookAuthors').text(response.authors || 'Belirtilmemiş');
+                    $('#bookIsbn').text(book.isbn || 'Belirtilmemiş');
                     $('#bookPublisher').text(response.publisher || 'Belirtilmemiş');
                     $('#bookCategory').text(response.category || 'Belirtilmemiş');
-                    $('#bookYear').text(book.publication_year || 'Belirtilmemiş');
-                    $('#bookDescription').text(book.description || 'Açıklama yok');
                     
                     // Kapak resmi kontrolü
-                    // Her zaman standart kitap logosu kullan
                     $('#bookCover').attr('src', '{{ asset('images/icons/book-logo.png') }}').show();
                     $('#noCover').hide();
                     
@@ -308,29 +297,21 @@ $(document).ready(function() {
                     // Başarılı mesajı göster
                     $('#searchResult').html('<div class="alert alert-success">Kitap bulundu: ' + book.title + '</div>');
                 } else {
-                    // Kitap bulunamadı, detayları gizle
-                    $('#bookDetails').addClass('d-none');
-                    $('#bookId').val('');
-                    
                     // Hata mesajı göster
-                    $('#searchResult').html('<div class="alert alert-warning">Kitap bulunamadı. Lütfen geçerli bir ISBN girin.</div>');
+                    $('#searchResult').html('<div class="alert alert-danger">Kitap bulunamadı.</div>');
+                    // Kitap detayları bölümünü gizle
+                    $('#bookDetails').addClass('d-none');
                 }
             },
-            error: function(xhr, status, error) {
+            error: function(xhr) {
                 // Arama düğmesini normal haline getir
-                $('#searchIsbn').html('<i class="fas fa-search"></i> Ara');
-                $('#searchIsbn').prop('disabled', false);
-                
-                // Kitap detayları bölümünü gizle
-                $('#bookDetails').addClass('d-none');
-                $('#bookId').val('');
+                $('#searchBook').html('<i class="fas fa-search"></i> Ara');
+                $('#searchBook').prop('disabled', false);
                 
                 // Hata mesajı göster
-                if (xhr.status === 404) {
-                    $('#searchResult').html('<div class="alert alert-warning">Kitap bulunamadı. Lütfen geçerli bir ISBN girin.</div>');
-                } else {
-                    $('#searchResult').html('<div class="alert alert-danger">Sunucu hatası: ' + xhr.status + ' - ' + xhr.statusText + '</div>');
-                }
+                $('#searchResult').html('<div class="alert alert-danger">Arama sırasında bir hata oluştu.</div>');
+                // Kitap detayları bölümünü gizle
+                $('#bookDetails').addClass('d-none');
             }
         });
     }

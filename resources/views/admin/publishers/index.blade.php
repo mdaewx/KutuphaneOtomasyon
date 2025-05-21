@@ -25,7 +25,8 @@
                             <th>Ad</th>
                             <th>Adres</th>
                             <th>Telefon</th>
-                            <th>İşlemler</th>
+                            <th>E-posta</th>
+                            <th width="120">İşlemler</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -35,6 +36,7 @@
                                 <td>{{ $publisher->name }}</td>
                                 <td>{{ $publisher->address }}</td>
                                 <td>{{ $publisher->phone }}</td>
+                                <td>{{ $publisher->email ?? '-' }}</td>
                                 <td>
                                     <a href="{{ route('admin.publishers.edit', $publisher) }}" class="btn btn-sm btn-primary">
                                         <i class="fas fa-edit"></i>

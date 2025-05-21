@@ -32,45 +32,70 @@ class StockController extends Controller
 
     public function store(Request $request)
     {
-        // Debug: Log the incoming form data to see what's being sent
-        \Log::info('Admin - Incoming form data:', [
-            'all_data' => $request->all()
-        ]);
-        
-        $validated = $request->validate([
-            'book_id' => 'required|exists:books,id',
-            'barcode' => 'required|string|unique:stocks,barcode',
-            'shelf_id' => 'required|exists:shelves,id',
-            'acquisition_source_id' => 'required|exists:acquisition_sources,id',
-            'acquisition_date' => 'required|date',
-            'acquisition_price' => 'nullable|numeric|min:0'
-        ]);
+        try {
+            // Debug: Log the incoming form data
+            \Log::info('Admin - Incoming form data:', [
+                'all_data' => $request->all()
+            ]);
+            
+            $validated = $request->validate([
+                'book_id' => 'required|exists:books,id',
+                'barcode' => 'required|string|unique:stocks,barcode',
+                'shelf_id' => 'required|exists:shelves,id',
+                'acquisition_source_id' => 'required|exists:acquisition_sources,id',
+                'acquisition_date' => 'required|date',
+                'acquisition_price' => 'nullable|numeric|min:0'
+            ]);
 
-        // Edinme kaynağını kontrol et
-        $acquisitionSource = AcquisitionSource::findOrFail($validated['acquisition_source_id']);
-        
-        $stock = new Stock();
-        $stock->book_id = $validated['book_id'];
-        $stock->barcode = $validated['barcode'];
-        $stock->shelf_id = $validated['shelf_id'];
-        $stock->acquisition_source_id = $validated['acquisition_source_id'];
-        $stock->acquisition_date = $validated['acquisition_date'];
-        $stock->acquisition_price = $validated['acquisition_price'];
-        $stock->is_available = true;
-        
-        // Set default condition
-        $stock->condition = 'new';
-        
-        $stock->save();
+            // Edinme kaynağını kontrol et
+            $acquisitionSource = AcquisitionSource::findOrFail($validated['acquisition_source_id']);
+            
+            $stock = new Stock();
+            $stock->book_id = $validated['book_id'];
+            $stock->barcode = $validated['barcode'];
+            $stock->shelf_id = $validated['shelf_id'];
+            $stock->acquisition_source_id = $validated['acquisition_source_id'];
+            $stock->acquisition_date = $validated['acquisition_date'];
+            $stock->acquisition_price = $validated['acquisition_price'];
+            $stock->is_available = true;
+            $stock->condition = 'new';
+            
+            $stock->save();
 
-        // Kitabın available_quantity değerini artır
-        $book = Book::find($validated['book_id']);
-        $book->increment('available_quantity');
-        $book->increment('quantity');
+            // Kitabın available_quantity değerini artır
+            $book = Book::find($validated['book_id']);
+            $book->increment('available_quantity');
+            $book->increment('quantity');
 
-        return redirect()
-            ->route('admin.stocks.index')
-            ->with('success', 'Stok başarıyla oluşturuldu.');
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Stok başarıyla oluşturuldu.',
+                    'redirect' => route('admin.stocks.index')
+                ]);
+            }
+
+            return redirect()
+                ->route('admin.stocks.index')
+                ->with('success', 'Stok başarıyla oluşturuldu.');
+        } catch (\Exception $e) {
+            \Log::error('Stock creation error:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Stok oluşturulurken bir hata oluştu.',
+                    'error' => $e->getMessage()
+                ], 500);
+            }
+
+            return back()
+                ->withInput()
+                ->withErrors(['error' => 'Stok oluşturulurken bir hata oluştu: ' . $e->getMessage()]);
+        }
     }
 
     public function show(Stock $stock)

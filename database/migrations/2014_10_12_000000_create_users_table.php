@@ -16,7 +16,6 @@ return new class extends Migration
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password')->default(Hash::make('password'));
             $table->boolean('is_admin')->default(false);
-            $table->string('profile_photo')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });

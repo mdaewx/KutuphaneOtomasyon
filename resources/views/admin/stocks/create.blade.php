@@ -2,6 +2,10 @@
 
 @section('title', 'Yeni Stok Ekle')
 
+@section('styles')
+<meta name="csrf-token" content="{{ csrf_token() }}">
+@endsection
+
 @section('content')
 <div class="container-fluid px-4">
     <h1 class="mt-4">Yeni Stok Kaydı</h1>
@@ -28,9 +32,8 @@
             @endif
 
             <form action="{{ route('admin.stocks.store') }}" method="POST">
-                @csrf
-                
-                
+                {{ csrf_field() }}
+                <input type="hidden" name="book_id" id="book_id" value="{{ old('book_id') }}">
 
                 <!-- ISBN ile Kitap Arama -->
                 <div class="row mb-3">
@@ -54,37 +57,12 @@
                             <div class="form-group">
                                 <label>Kitap Başlığı</label>
                                 <p class="form-control-static" id="bookTitle"></p>
-                                <input type="hidden" name="book_id" id="bookId">
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label>Yazar(lar)</label>
                                 <p class="form-control-static" id="bookAuthors"></p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label>Yayınevi</label>
-                                <p class="form-control-static" id="bookPublisher"></p>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label>Yayın Yılı</label>
-                                <p class="form-control-static" id="bookYear"></p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-12">
-                            <div class="form-group">
-                                <label>Açıklama</label>
-                                <p class="form-control-static" id="bookDescription"></p>
                             </div>
                         </div>
                     </div>
@@ -126,9 +104,6 @@
                                     </option>
                                 @endforeach
                             </select>
-                            @error('acquisition_source_id')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
                         </div>
                     </div>
                 </div>
@@ -147,8 +122,7 @@
                         </div>
                     </div>
                 </div>
-                
-  
+
                 <div class="mt-4">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save me-1"></i> Kaydet
@@ -157,7 +131,6 @@
                         <i class="fas fa-times me-1"></i> İptal
                     </a>
                 </div>
-                
             </form>
         </div>
     </div>
@@ -167,6 +140,7 @@
 @section('scripts')
 <script>
 $(document).ready(function() {
+    // ISBN search functionality
     $('#searchIsbn').click(function() {
         var isbn = $('#isbn').val();
         if (!isbn) {
@@ -174,68 +148,39 @@ $(document).ready(function() {
             return;
         }
 
-        // Arama butonunu devre dışı bırak
-        $('#searchIsbn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Aranıyor...');
+        // Disable search button
+        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Aranıyor...');
 
+        // Make AJAX request
         $.ajax({
-            url: '/admin/books/search/' + isbn,
-            type: 'GET',
-            dataType: 'json',
+            url: "{{ route('admin.books.search', '') }}/" + isbn,
+            method: 'GET',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
             success: function(response) {
-                // Arama butonunu normal haline getir
-                $('#searchIsbn').prop('disabled', false).html('<i class="fas fa-search"></i> Ara');
-                
                 if (response.book) {
-                    var book = response.book;
-                    $('#bookId').val(book.id);
-                    $('#bookTitle').text(book.title);
-                    
-                    // Yazarlar diziyse join ile birleştir, değilse doğrudan kullan
-                    if (Array.isArray(book.details.authors)) {
-                        $('#bookAuthors').text(book.details.authors.join(', '));
-                    } else {
-                        $('#bookAuthors').text(book.details.authors || 'Belirtilmemiş');
-                    }
-                    
-                    // Yayınevi bilgisini ekranda göster, hem details içinden hem de doğrudan gelen değeri kontrol et
-                    console.log('Publisher info:', {
-                        fromDetails: book.details ? book.details.publisher : 'No details',
-                        fromDirect: response.publisher || 'No direct publisher'
-                    });
-                    
-                    // İlk response.publisher'ı dene, yoksa book.details.publisher, yoksa book.publisher.name, hiçbiri yoksa 'Belirtilmemiş'
-                    var publisherName = response.publisher || 
-                                       (book.details && book.details.publisher) || 
-                                       (book.publisher ? book.publisher.name : 'Belirtilmemiş');
-                    $('#bookPublisher').text(publisherName);
-                    
-                    $('#bookYear').text(book.publication_year || 'Belirtilmemiş');
-                    $('#bookDescription').text(book.description || 'Açıklama yok');
+                    $('#book_id').val(response.book.id);
+                    $('#bookTitle').text(response.book.title);
+                    $('#bookAuthors').text(response.book.details.authors);
+                    $('#bookDetails').removeClass('d-none');
                     
                     // Otomatik barkod oluştur
                     if (!$('#barcode').val()) {
                         var timestamp = new Date().getTime().toString().substr(-5);
                         $('#barcode').val(isbn + '-' + timestamp);
                     }
-                    
-                    // Kitap kapağı için standart logo kullan
-                    $('#bookCover').attr('src', '{{ asset('images/icons/book-logo.png') }}').removeClass('d-none');
-                    
-                    $('#bookDetails').removeClass('d-none');
                 } else {
                     alert('Kitap bulunamadı.');
                     $('#bookDetails').addClass('d-none');
-                    $('#bookId').val('');
                 }
             },
-            error: function(xhr, status, error) {
-                // Arama butonunu normal haline getir
+            error: function() {
+                alert('Arama sırasında bir hata oluştu.');
+            },
+            complete: function() {
+                // Re-enable search button
                 $('#searchIsbn').prop('disabled', false).html('<i class="fas fa-search"></i> Ara');
-                
-                console.error('Hata:', xhr.responseText);
-                alert('Bir hata oluştu. Lütfen tekrar deneyin.');
-                $('#bookDetails').addClass('d-none');
-                $('#bookId').val('');
             }
         });
     });

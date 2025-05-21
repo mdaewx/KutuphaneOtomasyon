@@ -46,18 +46,18 @@ class AdminController extends Controller
             
             // Son 5 kullanıcı
             $latestUsers = User::where('is_admin', 0)
-                ->orderBy('created_at', 'desc')
+                ->orderBy('created_at', 'asc')
                 ->take(5)
                 ->get();
             
             // Son 5 kitap
-            $latestBooks = Book::orderBy('created_at', 'desc')
+            $latestBooks = Book::orderBy('created_at', 'asc')
                 ->take(5)
                 ->get();
             
             // Son 5 ödünç işlemi
             $recentBorrowings = Borrowing::with(['user', 'book'])
-                ->orderBy('created_at', 'desc')
+                ->orderBy('created_at', 'asc')
                 ->take(5)
                 ->get();
             
@@ -90,20 +90,13 @@ class AdminController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8',
-            'profile_photo' => 'nullable|image|max:1024'
+            'password' => 'required|string|min:8'
         ]);
 
         $user = new User();
         $user->name = $validated['name'];
         $user->email = $validated['email'];
         $user->password = Hash::make($validated['password']);
-
-        if ($request->hasFile('profile_photo')) {
-            $path = $request->file('profile_photo')->store('profiles', 'public');
-            $user->profile_photo = basename($path);
-        }
-
         $user->save();
 
         return redirect()->route('admin.users')->with('success', 'Kullanıcı başarıyla oluşturuldu.');
@@ -114,8 +107,7 @@ class AdminController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
-            'password' => 'nullable|string|min:8',
-            'profile_photo' => 'nullable|image|max:1024'
+            'password' => 'nullable|string|min:8'
         ]);
 
         $user->name = $validated['name'];
@@ -123,14 +115,6 @@ class AdminController extends Controller
 
         if ($request->filled('password')) {
             $user->password = Hash::make($validated['password']);
-        }
-
-        if ($request->hasFile('profile_photo')) {
-            if ($user->profile_photo) {
-                Storage::disk('public')->delete('profiles/' . $user->profile_photo);
-            }
-            $path = $request->file('profile_photo')->store('profiles', 'public');
-            $user->profile_photo = basename($path);
         }
 
         $user->save();

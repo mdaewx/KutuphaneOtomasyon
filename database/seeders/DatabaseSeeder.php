@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             AdminSeeder::class,
             StaffSeeder::class,
             AcquisitionSourceTypeSeeder::class,
+            AcquisitionSourceSeeder::class,
         ]);
 
         // Rolleri oluştur

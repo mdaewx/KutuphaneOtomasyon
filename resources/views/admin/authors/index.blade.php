@@ -21,16 +21,16 @@
                 <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
                     <thead>
                         <tr>
-                            <th>ID</th>
+                            <th width="80">ID</th>
                             <th>Ad</th>
                             <th>Soyad</th>
-                            <th>İşlemler</th>
+                            <th width="120">İşlemler</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($authors as $author)
                             <tr>
-                                <td>{{ $author->id }}</td>
+                                <td>{{ $author->row_number }}.</td>
                                 <td>{{ $author->name }}</td>
                                 <td>{{ $author->surname }}</td>
                                 <td>

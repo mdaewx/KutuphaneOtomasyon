@@ -13,7 +13,7 @@ class AdminCategoryController extends Controller
      */
     public function index()
     {
-        $categories = Category::withCount('books')->latest()->get();
+        $categories = Category::withCount('books')->orderBy('created_at', 'asc')->get();
         return view('admin.categories.index', compact('categories'));
     }
 

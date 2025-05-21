@@ -63,7 +63,7 @@
                                     </div>
                                 </td>
                                 <td>{{ $book->isbn }}</td>
-                                <td>{{ $book->publisher ? $book->publisher->name : '-' }}</td>
+                                <td>{{ $book->publisher_name }}</td>
                                 <td>{{ $book->category ? $book->category->name : '-' }}</td>
                                 <td>
                                     @if($book->isAvailable())

@@ -4,44 +4,34 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Fine extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
-        'book_id',
         'borrowing_id',
-        'days_late',
-        'fine_amount',
-        'paid',
-        'paid_at',
+        'amount',
+        'payment_status',
         'payment_method',
-        'payment_notes',
-        'collected_by'
+        'payment_reference',
+        'paid_at',
+        'approved_at',
+        'approved_by',
+        'admin_notes'
     ];
 
-    /**
-     * Bu cezanın ait olduğu kullanıcı
-     */
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    /**
-     * Bu cezanın ait olduğu kitap
-     */
-    public function book()
-    {
-        return $this->belongsTo(Book::class);
-    }
+    protected $casts = [
+        'amount' => 'decimal:2',
+        'paid_at' => 'datetime',
+        'approved_at' => 'datetime'
+    ];
 
     /**
      * Bu cezanın ait olduğu ödünç kaydı
      */
-    public function borrowing()
+    public function borrowing(): BelongsTo
     {
         return $this->belongsTo(Borrowing::class);
     }
@@ -49,17 +39,33 @@ class Fine extends Model
     /**
      * Bu cezayı tahsil eden personel
      */
-    public function collector()
+    public function approvedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'collected_by');
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
     /**
      * Ceza ödenmiş mi kontrolü
      */
-    public function isPaid()
+    public function isPaid(): bool
     {
-        return $this->paid;
+        return $this->payment_status === 'paid';
+    }
+
+    /**
+     * Ceza bekliyor mu kontrolü
+     */
+    public function isPending(): bool
+    {
+        return $this->payment_status === 'pending';
+    }
+
+    /**
+     * Ceza iptal mi kontrolü
+     */
+    public function isCancelled(): bool
+    {
+        return $this->payment_status === 'cancelled';
     }
 
     /**
@@ -67,6 +73,6 @@ class Fine extends Model
      */
     public function getFormattedAmountAttribute()
     {
-        return number_format($this->fine_amount, 2) . ' TL';
+        return number_format($this->amount, 2) . ' TL';
     }
 }

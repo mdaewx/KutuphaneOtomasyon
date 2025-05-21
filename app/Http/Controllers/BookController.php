@@ -39,8 +39,8 @@ class BookController extends Controller
             }
         }
         
-        $books = $query->orderBy('title')->paginate(12);
-        $categories = \App\Models\Category::orderBy('name')->get();
+        $books = $query->orderBy('id', 'asc')->paginate(12);
+        $categories = \App\Models\Category::orderBy('id', 'asc')->get();
         
         return view('books.index', compact('books', 'categories'));
     }

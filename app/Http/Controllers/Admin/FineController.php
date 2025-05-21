@@ -19,7 +19,7 @@ class FineController extends Controller
     public function index()
     {
         // Tüm cezaları ve gecikmiş ödünçleri al
-        $fines = Fine::with(['user', 'book'])->orderBy('created_at', 'desc')->get();
+        $fines = Fine::with(['user', 'book'])->orderBy('created_at', 'asc')->get();
         
         // Gecikmiş ama henüz iade edilmemiş kitaplar
         $overdueBorrowings = Borrowing::with(['user', 'book'])

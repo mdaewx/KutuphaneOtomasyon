@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Book;
 use App\Models\Borrowing;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class BookController extends Controller
 {
@@ -60,33 +61,58 @@ class BookController extends Controller
         
         $validatedData = $request->validate([
             'title' => 'required|string|max:255',
-            'category_id' => 'required|exists:categories,id',
+            'isbn' => 'required|string|unique:books,isbn',
             'publisher_id' => 'required|exists:publishers,id',
-            'isbn' => 'required|string|max:13|unique:books',
-            'page_count' => 'required|integer|min:1',
+            'category_id' => 'required|exists:categories,id',
+            'publication_year' => 'required|integer|min:1000|max:' . (date('Y') + 1),
             'language' => 'required|string|max:50',
-            'publication_year' => 'required|integer|min:1800|max:' . date('Y'),
+            'page_count' => 'required|integer|min:1',
             'description' => 'nullable|string',
-            'author_id' => 'required|exists:authors,id'
+            'author_ids' => 'required|array',
+            'author_ids.*' => 'exists:authors,id',
+            'quantity' => 'required|integer|min:1'
         ]);
 
-        // Create book using fillable fields
-        $book = Book::create([
-            'title' => $validatedData['title'],
-            'category_id' => $validatedData['category_id'],
-            'publisher_id' => $validatedData['publisher_id'],
-            'isbn' => $validatedData['isbn'],
-            'page_count' => $validatedData['page_count'],
-            'language' => $validatedData['language'],
-            'publication_year' => $validatedData['publication_year'],
-            'description' => $validatedData['description']
-        ]);
+        try {
+            DB::beginTransaction();
 
-        // Attach author
-        $book->authors()->attach($validatedData['author_id']);
+            // Debug için yayınevi bilgisini logla
+            \Log::info('Kitap oluşturma - Yayınevi bilgisi:', [
+                'publisher_id' => $validatedData['publisher_id'],
+                'publisher_exists' => \App\Models\Publisher::find($validatedData['publisher_id']) ? 'Evet' : 'Hayır'
+            ]);
 
-        return redirect()->route('staff.books.index')
-            ->with('success', 'Kitap başarıyla eklendi. Stok eklemek için stok yönetimi sayfasını kullanabilirsiniz.');
+            $book = Book::create($validatedData);
+            
+            // Yayınevi ilişkisini kontrol et ve logla
+            \Log::info('Kitap oluşturuldu - Yayınevi kontrolü:', [
+                'book_id' => $book->id,
+                'publisher_id_in_book' => $book->publisher_id,
+                'publisher_relation_works' => $book->publisher ? 'Evet' : 'Hayır'
+            ]);
+
+            // Yazarları ekle
+            $book->authors()->attach($validatedData['author_ids']);
+
+            // Stok kayıtları oluştur
+            for ($i = 0; $i < $validatedData['quantity']; $i++) {
+                $book->stocks()->create([
+                    'status' => 'available',
+                    'condition' => 'new',
+                    'is_available' => true
+                ]);
+            }
+
+            DB::commit();
+
+            return redirect()->route('staff.books.index')
+                ->with('success', 'Kitap başarıyla eklendi.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Kitap ekleme hatası:', ['error' => $e->getMessage()]);
+            return back()->with('error', 'Kitap eklenirken bir hata oluştu: ' . $e->getMessage());
+        }
     }
 
     public function show(Request $request, Book $book)
@@ -153,46 +179,65 @@ class BookController extends Controller
         $this->checkStaffAccess($request);
         
         try {
+            // Debug log ekleyelim
+            \Log::info('Staff book search started', ['isbn' => $isbn]);
+            
             $book = Book::with(['authors', 'publisher', 'category', 'stocks'])
                 ->where('isbn', $isbn)
                 ->first();
             
             if (!$book) {
+                \Log::warning('Book not found', ['isbn' => $isbn]);
                 return response()->json([
                     'error' => 'Kitap bulunamadı.',
                     'isbn' => $isbn
                 ], 404);
             }
 
+            // Tüm stok kayıtlarını kontrol et
+            $stockStatus = $book->stocks()
+                ->select('id', 'status', 'is_available')
+                ->get();
+                
+            \Log::info('Stock status', ['book_id' => $book->id, 'stocks' => $stockStatus]);
+
             // Kullanılabilir stok sayısını kontrol et
             $availableStockCount = $book->stocks()
                 ->where('status', 'available')
-                ->whereDoesntHave('borrowings', function($query) {
-                    $query->whereNull('returned_at');
-                })
+                ->where('is_available', true)
                 ->count();
+
+            \Log::info('Available stock count', [
+                'book_id' => $book->id, 
+                'count' => $availableStockCount
+            ]);
 
             if ($availableStockCount === 0) {
                 return response()->json([
-                    'error' => 'Bu kitabın uygun kopyası bulunmamaktadır.',
+                    'error' => 'Bu kitabın tüm kopyaları ödünç verilmiş durumda.',
+                    'book' => $book,
                     'isbn' => $isbn
-                ], 404);
+                ], 400);
             }
 
-            // Yazarların tam bilgilerini al
-            $authors = $book->authors->map(function($author) {
-                return $author->full_name ?? $author->name;
-            })->implode(', ');
+            // Yazar isimlerini birleştir
+            $authorNames = $book->authors->pluck('name')->join(', ');
 
             return response()->json([
                 'book' => $book,
-                'authors' => $authors,
+                'authors' => $authorNames,
                 'available_copies' => $availableStockCount
             ]);
+
         } catch (\Exception $e) {
+            \Log::error('Book search error', [
+                'error' => $e->getMessage(),
+                'isbn' => $isbn,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return response()->json([
-                'error' => 'Kitap arama sırasında bir hata oluştu.',
-                'message' => $e->getMessage()
+                'error' => 'Arama sırasında bir hata oluştu: ' . $e->getMessage()
             ], 500);
         }
     }

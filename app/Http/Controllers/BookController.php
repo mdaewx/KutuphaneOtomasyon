@@ -9,7 +9,7 @@ class BookController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Book::with(['publisher', 'authors']);
+        $query = Book::with(['publisher', 'authors', 'category', 'stocks.shelf']);
         
         // Kategori filtreleme
         if ($request->has('category')) {
@@ -21,7 +21,10 @@ class BookController extends Controller
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('author', 'like', "%{$search}%")
+                  ->orWhereHas('authors', function($q) use ($search) {
+                      $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('surname', 'like', "%{$search}%");
+                  })
                   ->orWhere('isbn', 'like', "%{$search}%");
             });
         }
@@ -29,18 +32,18 @@ class BookController extends Controller
         // Durum filtreleme
         if ($request->has('status')) {
             if ($request->status === 'available') {
-                $query->where('available_quantity', '>', 0)
-                      ->where('status', '!=', 'borrowed');
+                $query->whereHas('stocks', function($q) {
+                    $q->where('is_available', true);
+                });
             } elseif ($request->status === 'borrowed') {
-                $query->where(function($q) {
-                    $q->where('available_quantity', 0)
-                      ->orWhere('status', 'borrowed');
+                $query->whereDoesntHave('stocks', function($q) {
+                    $q->where('is_available', true);
                 });
             }
         }
         
         $books = $query->orderBy('id', 'asc')->paginate(12);
-        $categories = \App\Models\Category::orderBy('id', 'asc')->get();
+        $categories = \App\Models\Category::orderBy('name', 'asc')->get();
         
         return view('books.index', compact('books', 'categories'));
     }
@@ -217,7 +220,7 @@ class BookController extends Controller
             $borrowing->borrow_date = now();
             $borrowing->due_date = now()->addDays(14); // 2 hafta süre
             $borrowing->status = 'approved'; // Statüyü doğrudan approved yaparak "kitap ödünç alındı" olarak işaretleyelim
-            $borrowing->fine_amount = null; // Başlangıçta ceza tutarı yok
+            $borrowing->amount = null; // Başlangıçta ceza tutarı yok
             
             \Log::info('Yeni ödünç kaydı oluşturuldu, kaydediliyor');
             

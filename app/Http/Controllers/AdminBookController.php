@@ -11,6 +11,7 @@ use App\Models\Shelf;
 use App\Models\AcquisitionSource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 class AdminBookController extends Controller
 {
@@ -69,32 +70,49 @@ class AdminBookController extends Controller
             'publication_year' => 'required|integer|min:1800|max:' . date('Y'),
             'description' => 'nullable|string',
             'authors' => 'required|array|min:1',
-            'authors.*' => 'exists:authors,id',
+            'authors.*' => 'exists:authors,id'
         ]);
 
-        // Debug: Log publisher_id to see what's coming from the form
-        \Log::info('Publisher ID from form', [
-            'publisher_id' => $request->publisher_id,
-            'all_data' => $request->all()
-        ]);
+        try {
+            DB::beginTransaction();
 
-        // Create book using fillable fields
-        $book = Book::create([
-            'title' => $validatedData['title'],
-            'category_id' => $validatedData['category_id'],
-            'publisher_id' => $validatedData['publisher_id'],
-            'isbn' => $validatedData['isbn'],
-            'page_count' => $validatedData['page_count'],
-            'language' => $validatedData['language'],
-            'publication_year' => $validatedData['publication_year'],
-            'description' => $validatedData['description'],
-        ]);
+            // Create book using fillable fields
+            $book = Book::create([
+                'title' => $validatedData['title'],
+                'category_id' => $validatedData['category_id'],
+                'publisher_id' => $validatedData['publisher_id'],
+                'isbn' => $validatedData['isbn'],
+                'page_count' => $validatedData['page_count'],
+                'language' => $validatedData['language'],
+                'publication_year' => $validatedData['publication_year'],
+                'description' => $validatedData['description'],
+                'available_quantity' => 1
+            ]);
 
-        // Attach authors
-        $book->authors()->attach($validatedData['authors']);
+            // Attach authors
+            $book->authors()->attach($validatedData['authors']);
 
-        return redirect()->route('admin.books.index')
-            ->with('success', 'Kitap başarıyla eklendi.');
+            // Create initial stock record
+            $book->stocks()->create([
+                'status' => 'available',
+                'condition' => 'new',
+                'is_available' => true
+            ]);
+
+            DB::commit();
+
+            return redirect()->route('admin.books.index')
+                ->with('success', 'Kitap başarıyla eklendi.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Kitap ekleme hatası:', [
+                'error' => $e->getMessage(),
+                'data' => $validatedData
+            ]);
+            return back()
+                ->withInput()
+                ->with('error', 'Kitap eklenirken bir hata oluştu: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -137,34 +155,45 @@ class AdminBookController extends Controller
             'publication_year' => 'required|integer|min:1800|max:' . date('Y'),
             'description' => 'nullable|string',
             'authors' => 'required|array|min:1',
-            'authors.*' => 'exists:authors,id',
+            'authors.*' => 'exists:authors,id'
         ]);
 
-        // Debug: Log publisher_id to see what's coming from the form
-        \Log::info('Publisher ID from update form', [
-            'publisher_id' => $request->publisher_id,
-            'book_id' => $book->id,
-            'current_publisher_id' => $book->publisher_id,
-            'all_data' => $request->all()
-        ]);
+        try {
+            DB::beginTransaction();
 
-        // Update book using fillable fields
-        $book->update([
-            'title' => $validatedData['title'],
-            'category_id' => $validatedData['category_id'],
-            'publisher_id' => $validatedData['publisher_id'],
-            'isbn' => $validatedData['isbn'],
-            'page_count' => $validatedData['page_count'],
-            'language' => $validatedData['language'],
-            'publication_year' => $validatedData['publication_year'],
-            'description' => $validatedData['description'],
-        ]);
+            // Update book using fillable fields
+            $book->update([
+                'title' => $validatedData['title'],
+                'category_id' => $validatedData['category_id'],
+                'publisher_id' => $validatedData['publisher_id'],
+                'isbn' => $validatedData['isbn'],
+                'page_count' => $validatedData['page_count'],
+                'language' => $validatedData['language'],
+                'publication_year' => $validatedData['publication_year'],
+                'description' => $validatedData['description']
+            ]);
 
-        // Sync authors
-        $book->authors()->sync($validatedData['authors']);
+            // Sync authors
+            $book->authors()->sync($validatedData['authors']);
 
-        return redirect()->route('admin.books.index')
-            ->with('success', 'Kitap başarıyla güncellendi.');
+            // Update available_quantity based on stocks
+            $availableStocks = $book->stocks()->where('is_available', true)->count();
+            $book->update(['available_quantity' => $availableStocks]);
+
+            DB::commit();
+
+            return redirect()->route('admin.books.index')
+                ->with('success', 'Kitap başarıyla güncellendi.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Kitap güncelleme hatası:', [
+                'error' => $e->getMessage(),
+                'data' => $validatedData
+            ]);
+            return back()
+                ->withInput()
+                ->with('error', 'Kitap güncellenirken bir hata oluştu: ' . $e->getMessage());
+        }
     }
 
     /**

@@ -15,15 +15,13 @@ return new class extends Migration
             $table->id();
             $table->string('title');
             $table->string('isbn')->unique()->nullable();
-            $table->string('author');
             $table->text('description')->nullable();
-            $table->string('publisher')->nullable();
+            $table->foreignId('publisher_id')->nullable()->constrained()->onDelete('set null');
             $table->integer('publication_year')->nullable();
             $table->string('language')->default('Türkçe');
             $table->string('cover_image')->nullable();
             $table->integer('page_count')->nullable();
-            $table->boolean('is_available')->default(true);
-            $table->foreignId('category_id')->nullable()->constrained()->onDelete('set null');
+            $table->string('status')->default('available');
             $table->timestamps();
             $table->softDeletes();
         });

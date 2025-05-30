@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('stocks', function (Blueprint $table) {
-            $table->date('acquisition_date')->nullable();
-        });
+        if (!Schema::hasColumn('stocks', 'acquisition_date')) {
+            Schema::table('stocks', function (Blueprint $table) {
+                $table->date('acquisition_date')->nullable();
+            });
+        }
     }
 
     /**
@@ -21,8 +23,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('stocks', function (Blueprint $table) {
-            $table->dropColumn('acquisition_date');
-        });
+        if (Schema::hasColumn('stocks', 'acquisition_date')) {
+            Schema::table('stocks', function (Blueprint $table) {
+                $table->dropColumn('acquisition_date');
+            });
+        }
     }
 };

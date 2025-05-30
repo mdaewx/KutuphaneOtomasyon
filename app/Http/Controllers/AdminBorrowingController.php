@@ -4,9 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Book;
 use App\Models\User;
+use App\Models\Stock;
 use App\Models\Borrowing;
+use App\Models\Fine;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class AdminBorrowingController extends Controller
 {
@@ -15,7 +18,7 @@ class AdminBorrowingController extends Controller
      */
     public function index()
     {
-        $borrowings = Borrowing::with(['user', 'book'])->orderBy('created_at', 'asc')->get();
+        $borrowings = Borrowing::with(['user', 'book'])->orderBy('created_at', 'desc')->get();
         
         // Sadece normal kullanıcıları al (admin ve personel olmayan)
         $users = User::select('id', 'name', 'email')
@@ -24,10 +27,49 @@ class AdminBorrowingController extends Controller
                      ->orderBy('name')
                      ->get();
         
-        // Stok durumu 0'dan büyük olan kitapları getir
-        $books = Book::where('quantity', '>', 0)->get();
+        // Stok durumu müsait olan kitapları getir
+        $books = Book::whereHas('stocks', function($query) {
+            $query->where('is_available', true)
+                  ->where('status', 'available');
+        })->get();
         
         return view('admin.borrowings', compact('borrowings', 'users', 'books'));
+    }
+
+    /**
+     * Search books by ISBN or title
+     */
+    public function searchBooks(Request $request)
+    {
+        $search = $request->get('search');
+        
+        $books = Book::with(['authors', 'publisher', 'stocks' => function($query) {
+                $query->where('is_available', true)
+                      ->where('status', 'available');
+            }])
+            ->where(function($query) use ($search) {
+                $query->where('isbn', 'LIKE', "%{$search}%")
+                      ->orWhere('title', 'LIKE', "%{$search}%");
+            })
+            ->get()
+            ->map(function($book) {
+                return [
+                    'id' => $book->id,
+                    'title' => $book->title,
+                    'isbn' => $book->isbn,
+                    'author' => $book->authors->pluck('full_name')->join(', '),
+                    'publisher' => $book->publisher ? $book->publisher->name : '-',
+                    'publication_year' => $book->publication_year,
+                    'available_count' => $book->availableStocks->count(),
+                    'total_count' => $book->stocks->count()
+                ];
+            })
+            ->filter(function($book) {
+                return $book['available_count'] > 0;
+            })
+            ->values();
+            
+        return response()->json($books);
     }
 
     /**
@@ -40,7 +82,9 @@ class AdminBorrowingController extends Controller
                      ->where('is_staff', 0)
                      ->get();
                      
-        $books = Book::where('quantity', '>', 0)->get();
+        $books = Book::whereHas('stocks', function($query) {
+            $query->where('quantity', '>', 0);
+        })->get();
         
         return view('admin.borrowings', compact('users', 'books'));
     }
@@ -59,50 +103,77 @@ class AdminBorrowingController extends Controller
             'notes' => 'nullable|string|max:255',
         ]);
 
-        // Kullanıcı kontrolü
-        $user = User::find($validated['user_id']);
-        if (!$user) {
-            return redirect()->route('admin.borrowings.index')
-                             ->with('error', 'Seçilen kullanıcı bulunamadı.');
-        }
-        
-        // Personel ve admin kullanıcıları ödünç alamaz
-        if ($user->is_admin || $user->is_staff) {
-            return redirect()->route('admin.borrowings.index')
-                             ->with('error', 'Personel ve yöneticiler kitap ödünç alamaz.');
-        }
+        try {
+            DB::beginTransaction();
 
-        $book = Book::findOrFail($validated['book_id']);
-        
-        if ($book->quantity <= 0 || $book->available_quantity <= 0) {
-            return redirect()->route('admin.borrowings.index')
-                             ->with('error', 'Bu kitap şu anda stokta bulunmuyor.');
-        }
-
-        $borrowing = new Borrowing();
-        $borrowing->user_id = $validated['user_id'];
-        $borrowing->book_id = $validated['book_id'];
-        $borrowing->borrow_date = $validated['borrow_date'];
-        $borrowing->due_date = $validated['due_date'];
-        $borrowing->notes = $validated['notes'] ?? null;
-        $borrowing->status = $request->has('auto_approve') ? 'approved' : 'pending';
-        $borrowing->borrowed_at = now();
-        $borrowing->save();
-
-        // Eğer otomatik onaylandıysa kitap stokunu azalt
-        if ($borrowing->status === 'approved') {
-            $book->decrement('quantity');
-            $book->decrement('available_quantity');
-            
-            // Eğer kitabın stok durumu 0 olduysa, durumunu 'borrowed' olarak güncelle
-            if ($book->available_quantity <= 0) {
-                $book->status = 'borrowed';
-                $book->save();
+            // Kullanıcı kontrolü
+            $user = User::find($validated['user_id']);
+            if (!$user) {
+                return redirect()->route('admin.borrowings.index')
+                                ->with('error', 'Seçilen kullanıcı bulunamadı.');
             }
-        }
+            
+            // Personel ve admin kullanıcıları ödünç alamaz
+            if ($user->is_admin || $user->is_staff) {
+                return redirect()->route('admin.borrowings.index')
+                                ->with('error', 'Personel ve yöneticiler kitap ödünç alamaz.');
+            }
 
-        return redirect()->route('admin.borrowings.index')
-                         ->with('success', 'Ödünç verme işlemi başarıyla oluşturuldu.');
+            // Kitap kontrolü
+            $book = Book::find($validated['book_id']);
+            if (!$book) {
+                return redirect()->route('admin.borrowings.index')
+                                ->with('error', 'Seçilen kitap bulunamadı.');
+            }
+
+            // Kullanılabilir stok kontrolü
+            $availableStock = $book->stocks()
+                ->where('is_available', true)
+                ->where('status', 'available')
+                ->first();
+
+            if (!$availableStock) {
+                return redirect()->route('admin.borrowings.index')
+                                ->with('error', 'Bu kitap için uygun stok bulunmamaktadır.');
+            }
+
+            // Aktif ödünç sayısı kontrolü (maksimum 4)
+            $activeBorrowings = Borrowing::where('user_id', $user->id)
+                ->whereNull('returned_at')
+                ->count();
+
+            if ($activeBorrowings >= 4) {
+                return redirect()->route('admin.borrowings.index')
+                                ->with('error', 'Kullanıcı maksimum ödünç alma limitine ulaşmış (4).');
+            }
+
+            // Ödünç verme kaydı oluştur
+            $borrowing = new Borrowing();
+            $borrowing->user_id = $validated['user_id'];
+            $borrowing->book_id = $validated['book_id'];
+            $borrowing->stock_id = $availableStock->id;
+            $borrowing->borrow_date = $validated['borrow_date'];
+            $borrowing->due_date = $validated['due_date'];
+            $borrowing->notes = $validated['notes'];
+            $borrowing->status = 'active';
+            $borrowing->save();
+
+            // Stok durumunu güncelle
+            $availableStock->status = 'borrowed';
+            $availableStock->is_available = false;
+            $availableStock->save();
+
+            DB::commit();
+
+            return redirect()->route('admin.borrowings.index')
+                            ->with('success', 'Ödünç verme işlemi başarıyla kaydedildi.');
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            \Log::error('Ödünç verme hatası: ' . $e->getMessage());
+            return redirect()->route('admin.borrowings.index')
+                            ->with('error', 'Ödünç verme işlemi sırasında bir hata oluştu.');
+        }
     }
 
     /**
@@ -172,29 +243,60 @@ class AdminBorrowingController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $borrowing->returned_at = $validated['returned_at'];
-        $borrowing->condition = $validated['condition'];
-        $borrowing->notes = $validated['notes'] ?? $borrowing->notes;
-        $borrowing->status = 'returned';
-        $borrowing->save();
+        try {
+            DB::beginTransaction();
 
-        // Kitabın durumunu ve stok bilgilerini güncelle
-        $book = $borrowing->book;
-        
-        // Kitap durumu iyi veya hasarlı ise stok artır, kayıpsa stok artırma
-        if ($validated['condition'] !== 'lost') {
-            $book->increment('quantity');
-            $book->increment('available_quantity');
-            
-            // Kitabın durumunu güncelle
-            if ($book->status === 'borrowed' && $book->available_quantity > 0) {
-                $book->status = 'available';
-                $book->save();
+            $borrowing->returned_at = $validated['returned_at'];
+            $borrowing->condition = $validated['condition'];
+            $borrowing->notes = $validated['notes'];
+            $borrowing->status = 'returned';
+            $borrowing->save();
+
+            // Stok durumunu güncelle
+            if ($borrowing->stock) {
+                $borrowing->stock->status = 'available';
+                $borrowing->stock->is_available = true;
+                
+                // Eğer kitap hasar görmüş veya kayıpsa durumu güncelle
+                if ($validated['condition'] === 'damaged') {
+                    $borrowing->stock->status = 'damaged';
+                    $borrowing->stock->is_available = false;
+                } elseif ($validated['condition'] === 'lost') {
+                    $borrowing->stock->status = 'lost';
+                    $borrowing->stock->is_available = false;
+                }
+                
+                $borrowing->stock->save();
             }
-        }
 
-        return redirect()->route('admin.borrowings.index')
-                         ->with('success', 'Kitap başarıyla iade alındı.');
+            // Gecikme cezası kontrolü
+            if ($borrowing->isOverdue()) {
+                $overdueDays = $borrowing->getOverdueDays();
+                $fineAmount = $overdueDays * (session('overdue_fine_per_day') ?? 1.0);
+
+                $fine = new Fine([
+                    'user_id' => $borrowing->user_id,
+                    'book_id' => $borrowing->book_id,
+                    'borrowing_id' => $borrowing->id,
+                    'amount' => $fineAmount,
+                    'reason' => 'Gecikme cezası - ' . $overdueDays . ' gün',
+                    'due_date' => now()->addDays(30),
+                    'status' => 'pending'
+                ]);
+                $fine->save();
+            }
+
+            DB::commit();
+
+            return redirect()->route('admin.borrowings.index')
+                             ->with('success', 'Kitap başarıyla iade edildi.');
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            \Log::error('İade işlemi hatası: ' . $e->getMessage());
+            return redirect()->route('admin.borrowings.index')
+                             ->with('error', 'İade işlemi sırasında bir hata oluştu.');
+        }
     }
 
     /**
@@ -336,5 +438,39 @@ class AdminBorrowingController extends Controller
         ];
         
         return response()->json($borrowingData);
+    }
+
+    /**
+     * Search users by name or email
+     */
+    public function searchUsers(Request $request)
+    {
+        $search = $request->get('search');
+        
+        if (empty($search) || strlen($search) < 2) {
+            return response()->json([]);
+        }
+
+        $users = User::where('is_admin', 0)
+            ->where('is_staff', 0)
+            ->where(function($query) use ($search) {
+                $query->where('name', 'LIKE', "%{$search}%")
+                    ->orWhere('surname', 'LIKE', "%{$search}%")
+                    ->orWhere('email', 'LIKE', "%{$search}%");
+            })
+            ->select('id', 'name', 'surname', 'email')
+            ->orderBy('name')
+            ->limit(10)
+            ->get()
+            ->map(function($user) {
+                return [
+                    'id' => $user->id,
+                    'text' => $user->name . ' ' . $user->surname . ' (' . $user->email . ')',
+                    'name' => $user->name . ' ' . $user->surname,
+                    'email' => $user->email
+                ];
+            });
+            
+        return response()->json($users);
     }
 } 

@@ -8,7 +8,7 @@ use Illuminate\Support\Str;
 
 class CategorySeeder extends Seeder
 {
-    public function run()
+    public function run(): void
     {
         $categories = [
             [
@@ -56,5 +56,11 @@ class CategorySeeder extends Seeder
         foreach ($categories as $category) {
             Category::create($category);
         }
+
+        Category::create([
+            'name' => 'Genel',
+            'slug' => Str::slug('Genel'),
+            'description' => 'Genel kitaplar'
+        ]);
     }
 } 

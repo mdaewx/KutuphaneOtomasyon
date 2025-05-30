@@ -20,12 +20,14 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'surname',
         'email',
         'password',
         'phone',
         'address',
         'is_admin',
         'is_staff',
+        'profile_photo'
     ];
 
     /**
@@ -79,7 +81,7 @@ class User extends Authenticatable
      */
     public function activeBorrowings()
     {
-        return $this->borrowings()->whereNull('returned_at');
+        return $this->hasMany(Borrowing::class)->whereNull('returned_at');
     }
 
     /**
@@ -127,23 +129,43 @@ class User extends Authenticatable
         return $this->belongsToMany(Role::class);
     }
 
-    public function hasRole($role)
+    public function hasRole($role): bool
     {
-        if (is_string($role)) {
-            return $this->roles->contains('slug', $role) || 
-                   ($role === 'admin' && $this->is_admin) || 
-                   ($role === 'staff' && $this->is_staff);
+        if ($role === 'admin') {
+            return $this->isAdmin();
+        } elseif ($role === 'staff') {
+            return $this->isStaff();
         }
-        return !! $role->intersect($this->roles)->count();
+        return !$this->isAdmin() && !$this->isStaff();
+    }
+
+    public function getRoleNameAttribute(): string
+    {
+        if ($this->isAdmin()) {
+            return 'Yönetici';
+        } elseif ($this->isStaff()) {
+            return 'Memur';
+        }
+        return 'Kullanıcı';
     }
 
     public function isAdmin(): bool
     {
-        return $this->is_admin || $this->hasRole('admin');
+        return $this->is_admin;
     }
 
     public function isStaff(): bool
     {
         return $this->is_staff || $this->isAdmin();
+    }
+
+    public function isUser(): bool
+    {
+        return !$this->isAdmin() && !$this->isStaff();
+    }
+
+    public function getFullNameAttribute(): string
+    {
+        return trim($this->name . ' ' . $this->surname);
     }
 }

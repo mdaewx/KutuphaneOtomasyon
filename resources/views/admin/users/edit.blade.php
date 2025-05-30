@@ -1,13 +1,13 @@
 @extends('layouts.admin')
 
-@section('title', 'Kullanıcı Düzenle')
+@section('title', 'Kullanıcı Düzenle: ' . $user->name)
 
 @section('content')
 <div class="container-fluid">
     <!-- Page Heading -->
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 class="h3 mb-0 text-gray-800">Kullanıcı Düzenle: {{ $user->name }}</h1>
-        <a href="{{ route('admin.users.index') }}" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">
+        <a href="{{ route('admin.users.index') }}" class="btn btn-secondary">
             <i class="fas fa-arrow-left fa-sm text-white-50"></i> Kullanıcılara Dön
         </a>
     </div>
@@ -93,19 +93,16 @@
                     </div>
                 </div>
                 
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="role">Kullanıcı Rolü <span class="text-danger">*</span></label>
-                            <select class="form-control @error('role') is-invalid @enderror" id="role" name="role" required>
-                                <option value="user" {{ old('role', $user->role) == 'user' ? 'selected' : '' }}>Kullanıcı</option>
-                                <option value="admin" {{ old('role', $user->role) == 'admin' ? 'selected' : '' }}>Yönetici</option>
-                            </select>
-                            @error('role')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-                    </div>
+                <div class="form-group">
+                    <label for="user_type">Kullanıcı Rolü <span class="text-danger">*</span></label>
+                    <select class="form-control @error('user_type') is-invalid @enderror" id="user_type" name="user_type" required>
+                        <option value="admin" {{ $user->is_admin ? 'selected' : '' }}>Yönetici</option>
+                        <option value="staff" {{ !$user->is_admin && $user->is_staff ? 'selected' : '' }}>Memur</option>
+                        <option value="user" {{ !$user->is_admin && !$user->is_staff ? 'selected' : '' }}>Kullanıcı</option>
+                    </select>
+                    @error('user_type')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
                 </div>
                 
                 <div class="mt-4">

@@ -37,7 +37,7 @@
                                 </tr>
                                 <tr>
                                     <th>Ceza Tutarı</th>
-                                    <td class="font-weight-bold">{{ number_format($fine->fine_amount, 2) }} TL</td>
+                                    <td class="font-weight-bold">{{ number_format($fine->amount, 2) }} TL</td>
                                 </tr>
                                 <tr>
                                     <th>Ödeme Durumu</th>

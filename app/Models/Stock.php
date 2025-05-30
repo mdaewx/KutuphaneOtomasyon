@@ -12,22 +12,26 @@ class Stock extends Model
     protected $fillable = [
         'book_id',
         'barcode',
-        'isbn',
+        'status',
+        'condition',
+        'is_available',
         'shelf_id',
         'acquisition_source_id',
         'acquisition_date',
         'acquisition_price',
-        'is_available',
-        'quantity',
-        'condition',  // fiziksel durum
-        'status'      // ödünç durumu
+        'notes'
+    ];
+
+    protected $attributes = [
+        'status' => 'available',
+        'is_available' => true,
+        'condition' => 'new'
     ];
 
     protected $casts = [
-        'acquisition_date' => 'date',
-        'acquisition_price' => 'decimal:2',
         'is_available' => 'boolean',
-        'quantity' => 'integer'
+        'acquisition_date' => 'date',
+        'acquisition_price' => 'decimal:2'
     ];
 
     // İsimlendirme sabitleri ekleyelim
@@ -68,79 +72,40 @@ class Stock extends Model
         return $this->hasMany(Borrowing::class);
     }
 
-    // Aktif ödünç verme kontrolü
-    public function isCurrentlyBorrowed()
+    public function activeBorrowing()
     {
-        $borrowed = $this->borrowings()->whereNull('returned_at')->exists();
-        
-        // Ödünç verildiyse status'u da güncelleyelim
-        if ($borrowed && $this->status !== self::STATUS_BORROWED) {
-            $this->update(['status' => self::STATUS_BORROWED]);
-        }
-        
-        return $borrowed;
+        return $this->hasOne(Borrowing::class)->whereNull('returned_at');
     }
 
     // Kullanılabilirlik durumu kontrolü
     public function isAvailable()
     {
-        // Eğer bir ödünç verme kaydı varsa ve iade edilmemişse, kitap mevcut değildir
-        $activeBorrowing = $this->borrowings()->whereNull('returned_at')->exists();
-        
-        if ($activeBorrowing) {
-            // Kitap ödünç verilmiş, mevcut değil
-            if ($this->status !== self::STATUS_BORROWED) {
-                $this->update(['status' => self::STATUS_BORROWED]);
-            }
-            return false;
-        }
-        
-        // Kitap ödünç verilmemişse ve hasar/kayıp durumunda değilse, mevcuttur
-        if ($this->status !== self::STATUS_LOST && $this->status !== self::STATUS_DAMAGED) {
-            if ($this->status !== self::STATUS_AVAILABLE) {
-                $this->update(['status' => self::STATUS_AVAILABLE, 'is_available' => true]);
-            }
-            return true;
-        }
-        
-        // Kitap kayıp veya hasarlı ise kullanılamaz
-        return false;
+        return $this->status === 'available' && $this->is_available;
     }
 
     // Durumun okunabilir Türkçe adını döndüren metot
-    public function getStatusLabelAttribute()
+    public function getStatusTextAttribute()
     {
-        switch ($this->status) {
-            case self::STATUS_AVAILABLE:
-                return 'Stokta';
-            case self::STATUS_BORROWED:
-                return 'Ödünç Verildi';
-            case self::STATUS_RESERVED:
-                return 'Rezerve Edildi';
-            case self::STATUS_LOST:
-                return 'Kayıp';
-            case self::STATUS_DAMAGED:
-                return 'Hasarlı';
-            default:
-                return $this->status;
-        }
+        return match($this->status) {
+            'available' => 'Müsait',
+            'borrowed' => 'Ödünç Verilmiş',
+            'reserved' => 'Rezerve Edilmiş',
+            'damaged' => 'Hasarlı',
+            'lost' => 'Kayıp',
+            default => 'Bilinmiyor'
+        };
     }
 
     // Fiziksel durumun okunabilir Türkçe adını döndüren metot
-    public function getConditionLabelAttribute()
+    public function getConditionTextAttribute()
     {
-        switch ($this->condition) {
-            case self::CONDITION_NEW:
-                return 'Yeni';
-            case self::CONDITION_GOOD:
-                return 'İyi';
-            case self::CONDITION_FAIR:
-                return 'Orta';
-            case self::CONDITION_POOR:
-                return 'Kötü';
-            default:
-                return $this->condition;
-        }
+        return match($this->condition) {
+            'new' => 'Yeni',
+            'good' => 'İyi',
+            'fair' => 'Orta',
+            'poor' => 'Kötü',
+            default => 'Bilinmiyor'
+        };
     }
 
     /**

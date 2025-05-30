@@ -5,6 +5,8 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Schema;
 use App\Services\AdminService;
+use Illuminate\Support\Facades\Gate;
+use App\Http\Middleware\StaffMiddleware;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -21,6 +23,10 @@ class AppServiceProvider extends ServiceProvider
         // Keep the named binding for backward compatibility
         $this->app->bind('admin', function ($app) {
             return $app->make(AdminService::class);
+        });
+
+        $this->app->singleton('staff', function ($app) {
+            return new StaffMiddleware();
         });
     }
 

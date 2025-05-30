@@ -13,12 +13,12 @@ return new class extends Migration
     {
         Schema::create('author_book', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('author_id');
-            $table->unsignedBigInteger('book_id');
+            $table->foreignId('author_id')->constrained()->onDelete('cascade');
+            $table->foreignId('book_id')->constrained()->onDelete('cascade');
             $table->timestamps();
-
-            $table->foreign('author_id')->references('id')->on('authors')->onDelete('cascade');
-            $table->foreign('book_id')->references('id')->on('books')->onDelete('cascade');
+            
+            // Her yazar-kitap kombinasyonu benzersiz olmalı
+            $table->unique(['author_id', 'book_id']);
         });
     }
 
@@ -29,4 +29,4 @@ return new class extends Migration
     {
         Schema::dropIfExists('author_book');
     }
-};
+}; 

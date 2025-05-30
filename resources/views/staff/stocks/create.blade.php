@@ -50,10 +50,8 @@
                     <div class="row mb-3">
                         <div class="col-md-3">
                             <div class="book-cover-container text-center mb-3">
-                                <img id="bookCover" src="{{ asset('images/icons/book-logo.png') }}" alt="Kitap Kapağı" class="img-fluid book-cover" style="max-height: 200px; display: none;">
                                 <div id="noCover" class="no-cover-placeholder">
-                                    <i class="fas fa-book fa-5x text-secondary"></i>
-                                    <p class="mt-2">Kapak yok</p>
+                                    <img src="{{ asset('images/book-default.png') }}" alt="Varsayılan Kitap Logosu" class="img-fluid" style="max-height: 200px;">
                                 </div>
                             </div>
                         </div>
@@ -61,8 +59,8 @@
                             <div class="row">
                                 <div class="col-md-12">
                                     <div class="form-group">
-                                        <label>Kitap Başlığı</label>
-                                        <p class="form-control-static fw-bold" id="bookTitle"></p>
+                                        <label class="font-weight-bold">Kitap Başlığı</label>
+                                        <p class="form-control-static h5" id="bookTitle"></p>
                                         <input type="hidden" name="book_id" id="bookId">
                                     </div>
                                 </div>
@@ -70,13 +68,13 @@
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="form-group">
-                                        <label>Yazar(lar)</label>
+                                        <label class="font-weight-bold">Yazar(lar)</label>
                                         <p class="form-control-static" id="bookAuthors"></p>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-group">
-                                        <label>ISBN</label>
+                                        <label class="font-weight-bold">ISBN</label>
                                         <p class="form-control-static" id="bookIsbn"></p>
                                     </div>
                                 </div>
@@ -84,13 +82,7 @@
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="form-group">
-                                        <label>Yayınevi</label>
-                                        <p class="form-control-static" id="bookPublisher"></p>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label>Kategori</label>
+                                        <label class="font-weight-bold">Kategori</label>
                                         <p class="form-control-static" id="bookCategory"></p>
                                     </div>
                                 </div>
@@ -112,18 +104,13 @@
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label for="shelf_id">Raf <span class="text-danger">*</span></label>
-                            <select class="form-control @error('shelf_id') is-invalid @enderror" id="shelf_id" name="shelf_id" required>
+                            <label for="shelf_id" class="form-label">Raf <span class="text-danger">*</span></label>
+                            <select class="form-select" id="shelf_id" name="shelf_id" required>
                                 <option value="">Raf Seçin</option>
                                 @foreach($shelves as $shelf)
-                                    <option value="{{ $shelf->id }}" {{ old('shelf_id') == $shelf->id ? 'selected' : '' }}>
-                                        {{ $shelf->name }}
-                                    </option>
+                                    <option value="{{ $shelf->id }}">{{ $shelf->name }}</option>
                                 @endforeach
                             </select>
-                            @error('shelf_id')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
                         </div>
                     </div>
                 </div>
@@ -134,7 +121,6 @@
                         <div class="form-group">
                             <label for="quantity">Stok Adedi</label>
                             <input type="number" class="form-control @error('quantity') is-invalid @enderror" id="quantity" name="quantity" value="{{ old('quantity', 1) }}" min="1">
-                            <small class="form-text text-muted">Eklenecek kopya sayısı. Her kopya için otomatik barkod oluşturulacaktır.</small>
                             @error('quantity')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
@@ -216,26 +202,19 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
 $(document).ready(function() {
-    // İşlevsel olmasını sağlamak için CSRF token'ı ekleyelim
+    // CSRF token ayarı
     $.ajaxSetup({
         headers: {
             'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
         }
     });
     
-    // Bu fonksiyon otomatik barkod oluşturur
-    function generateBarcode(isbn) {
-        // ISBN'i barkoda dönüştür, ancak tarihi de ekleyerek benzersiz olmasını sağla
-        let timestamp = new Date().getTime().toString().substr(-6);
-        return isbn + '-' + timestamp;
-    }
-    
     // Arama işlemi
     $('#searchBook').click(function() {
         searchBook();
     });
     
-    // Arama alanında Enter tuşu ile arama yapma
+    // Enter tuşu ile arama
     $('#search').keydown(function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -246,74 +225,83 @@ $(document).ready(function() {
     function searchBook() {
         var searchTerm = $('#search').val().trim();
         if (!searchTerm) {
-            alert('Lütfen ISBN veya kitap adı girin.');
+            showError('Lütfen ISBN veya kitap adı girin.');
             return;
         }
 
-        // Arama düğmesini devre dışı bırak
-        $('#searchBook').html('<i class="fas fa-spinner fa-spin"></i> Aranıyor...');
-        $('#searchBook').prop('disabled', true);
+        // Arama düğmesini devre dışı bırak ve yükleniyor göster
+        $('#searchBook').prop('disabled', true)
+            .html('<i class="fas fa-spinner fa-spin"></i> Aranıyor...');
         
-        // Sonuç alanını temizle
+        // Sonuç alanlarını temizle
         $('#searchResult').html('');
+        $('#bookDetails').addClass('d-none');
 
         // AJAX ile kitap ara
         $.ajax({
-            url: '{{ route("staff.stocks.search") }}',
+            url: '/staff/stocks/search',
             type: 'GET',
             data: {
                 search: searchTerm
             },
             success: function(response) {
-                // Arama düğmesini normal haline getir
-                $('#searchBook').html('<i class="fas fa-search"></i> Ara');
-                $('#searchBook').prop('disabled', false);
-                
-                if (response.book) {
-                    var book = response.book;
-                    
+                if (response.success && response.book) {
                     // Kitap ID'sini gizli alana kaydet
-                    $('#bookId').val(book.id);
-                    
-                    // Otomatik barkod oluştur ve alana yerleştir
-                    if (!$('#barcode').val()) {
-                        $('#barcode').val(generateBarcode(book.isbn));
-                    }
+                    $('#bookId').val(response.book.id);
                     
                     // Kitap bilgilerini göster
-                    $('#bookTitle').text(book.title || 'Başlık belirtilmemiş');
-                    $('#bookAuthors').text(response.authors || 'Belirtilmemiş');
-                    $('#bookIsbn').text(book.isbn || 'Belirtilmemiş');
-                    $('#bookPublisher').text(response.publisher || 'Belirtilmemiş');
-                    $('#bookCategory').text(response.category || 'Belirtilmemiş');
+                    $('#bookTitle').text(response.book.title);
+                    $('#bookAuthors').text(response.book.authors);
+                    $('#bookIsbn').text(response.book.isbn);
+                    $('#bookCategory').text(response.book.category);
                     
-                    // Kapak resmi kontrolü
-                    $('#bookCover').attr('src', '{{ asset('images/icons/book-logo.png') }}').show();
-                    $('#noCover').hide();
+                    // Müsait kopya sayısını göster
+                    var availabilityText = response.book.available_copies > 0 
+                        ? response.book.available_copies + ' adet müsait kopya var'
+                        : 'Müsait kopya bulunmuyor';
+                    $('#searchResult').html(
+                        '<div class="alert alert-info">' + availabilityText + '</div>'
+                    );
+                    
+                    // Kapak resmini güncelle
+                    if (response.book.has_cover) {
+                        $('#noCover').hide();
+                    } else {
+                        $('#noCover').show();
+                    }
+                    
+                    // Otomatik barkod oluştur
+                    if (!$('#barcode').val()) {
+                        var timestamp = new Date().getTime().toString().substr(-6);
+                        $('#barcode').val(response.book.isbn + '-' + timestamp);
+                    }
                     
                     // Kitap detayları bölümünü göster
                     $('#bookDetails').removeClass('d-none');
-                    
-                    // Başarılı mesajı göster
-                    $('#searchResult').html('<div class="alert alert-success">Kitap bulundu: ' + book.title + '</div>');
                 } else {
-                    // Hata mesajı göster
-                    $('#searchResult').html('<div class="alert alert-danger">Kitap bulunamadı.</div>');
-                    // Kitap detayları bölümünü gizle
-                    $('#bookDetails').addClass('d-none');
+                    showError(response.message || 'Kitap bulunamadı.');
                 }
             },
-            error: function(xhr) {
+            error: function(xhr, status, error) {
+                var errorMessage = 'Arama sırasında bir hata oluştu.';
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMessage = xhr.responseJSON.message;
+                }
+                showError(errorMessage);
+            },
+            complete: function() {
                 // Arama düğmesini normal haline getir
-                $('#searchBook').html('<i class="fas fa-search"></i> Ara');
-                $('#searchBook').prop('disabled', false);
-                
-                // Hata mesajı göster
-                $('#searchResult').html('<div class="alert alert-danger">Arama sırasında bir hata oluştu.</div>');
-                // Kitap detayları bölümünü gizle
-                $('#bookDetails').addClass('d-none');
+                $('#searchBook').prop('disabled', false)
+                    .html('<i class="fas fa-search"></i> Ara');
             }
         });
+    }
+
+    function showError(message) {
+        $('#searchResult').html(
+            '<div class="alert alert-warning">' + message + '</div>'
+        );
+        $('#bookDetails').addClass('d-none');
     }
 });
 </script>

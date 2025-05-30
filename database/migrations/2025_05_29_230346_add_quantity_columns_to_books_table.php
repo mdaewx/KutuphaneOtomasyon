@@ -12,9 +12,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('books', function (Blueprint $table) {
-            // Add language column if it doesn't exist
-            if (!Schema::hasColumn('books', 'language')) {
-                $table->string('language')->nullable()->after('description');
+            if (Schema::hasColumn('books', 'quantity')) {
+                $table->dropColumn('quantity');
+            }
+            if (Schema::hasColumn('books', 'available_quantity')) {
+                $table->dropColumn('available_quantity');
             }
         });
     }
@@ -25,10 +27,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('books', function (Blueprint $table) {
-            // Drop language column if it exists
-            if (Schema::hasColumn('books', 'language')) {
-                $table->dropColumn('language');
-            }
+            $table->integer('quantity')->default(0)->after('id');
+            $table->integer('available_quantity')->default(0)->after('quantity');
         });
     }
 };

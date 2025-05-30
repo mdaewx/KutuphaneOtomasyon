@@ -42,7 +42,6 @@ class AdminProfileController extends Controller
         $user->email = $validated['email'];
         $user->password = Hash::make($validated['password']);
         $user->is_admin = 1;
-        $user->role = 'admin';
         $user->save();
 
         return redirect()->route('admin.profiles.index')

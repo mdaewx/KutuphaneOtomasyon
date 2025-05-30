@@ -12,9 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('books', function (Blueprint $table) {
-            // Slug alanını ekle
-            if (!Schema::hasColumn('books', 'slug')) {
-                $table->string('slug')->nullable()->after('title');
+            if (!Schema::hasColumn('books', 'category_id')) {
+                $table->foreignId('category_id')->nullable()->after('publisher_id')->constrained()->onDelete('set null');
             }
         });
     }
@@ -25,10 +24,10 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('books', function (Blueprint $table) {
-            // Slug alanını kaldır
-            if (Schema::hasColumn('books', 'slug')) {
-                $table->dropColumn('slug');
+            if (Schema::hasColumn('books', 'category_id')) {
+                $table->dropForeign(['category_id']);
+                $table->dropColumn('category_id');
             }
         });
     }
-};
+}; 

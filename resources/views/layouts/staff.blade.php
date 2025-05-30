@@ -2,9 +2,10 @@
 <html lang="tr">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ config('app.name', 'Laravel') }} - Personel Paneli</title>
+    <title>@yield('title') - Kütüphane Personel Paneli</title>
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -253,8 +254,20 @@
                 <li class="nav-item">
                     <a class="nav-link {{ request()->routeIs('staff.borrowings.*') ? 'active' : '' }}"
                        href="{{ route('staff.borrowings.index') }}">
-                        <i class="fas fa-hand-holding-heart"></i>
+                        <i class="fas fa-book-reader"></i>
                         <span>Ödünç İşlemleri</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ route('staff.fines.index') }}">
+                        <i class="fas fa-money-bill"></i>
+                        <span>Ceza İşlemleri</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ route('staff.users.index') }}">
+                        <i class="fas fa-users"></i>
+                        <span>Üye İşlemleri</span>
                     </a>
                 </li>
                 
@@ -388,6 +401,21 @@
 
     <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        // Verify jQuery is loaded
+        if (typeof jQuery === 'undefined') {
+            console.error('jQuery is not loaded!');
+        } else {
+            console.log('jQuery is loaded, version:', jQuery.fn.jquery);
+        }
+
+        // Set up CSRF token for all AJAX requests
+        $.ajaxSetup({
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            }
+        });
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
@@ -395,6 +423,8 @@
 
     <script>
         $(document).ready(function() {
+            console.log('Layout script is running'); // Debug log
+            
             // Sidebar toggle for mobile
             $('#sidebarToggle, #sidebarToggleTop').on('click', function(e) {
                 $('body').toggleClass('sidebar-toggled');
@@ -435,6 +465,6 @@
         });
     </script>
     
-    @yield('scripts')
+    @stack('scripts')
 </body>
 </html> 

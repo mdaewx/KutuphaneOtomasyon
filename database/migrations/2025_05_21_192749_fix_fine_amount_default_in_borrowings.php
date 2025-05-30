@@ -11,9 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('publishers', function (Blueprint $table) {
-            $table->string('email')->nullable()->after('phone');
-        });
+        // Bu migration artık kullanılmıyor
     }
 
     /**
@@ -21,8 +19,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('publishers', function (Blueprint $table) {
-            $table->dropColumn('email');
-        });
+        // Bu migration artık kullanılmıyor
     }
-};
+}; 

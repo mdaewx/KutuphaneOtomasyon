@@ -7,12 +7,25 @@
 <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap4-theme@1.0.0/dist/select2-bootstrap4.min.css" rel="stylesheet" />
 <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
 <style>
-    .select2-container {
-        z-index: 9999;
+    /* Z-index fixes */
+    .modal-backdrop {
+        z-index: 1040 !important;
     }
     .modal {
-        z-index: 1050;
+        z-index: 1050 !important;
     }
+    .select2-container {
+        z-index: 1055 !important;
+    }
+    .select2-container--open {
+        z-index: 1056 !important;
+    }
+    .select2-dropdown {
+        z-index: 1056 !important;
+        border: 1px solid #e3e6f0;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    }
+    
     .modal-dialog {
         overflow-y: initial !important
     }
@@ -23,15 +36,7 @@
     .modal .select2-container {
         width: 100% !important;
     }
-    /* Dropdown menü için düzeltme */
-    .modal-open .select2-dropdown {
-        z-index: 10000;
-    }
-    .select2-dropdown {
-        z-index: 10000;
-        border: 1px solid #e3e6f0;
-        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
-    }
+    
     .select2-container--bootstrap4 .select2-results__option--highlighted {
         background-color: #4e73df !important;
     }
@@ -40,10 +45,17 @@
     }
     .select2-container--bootstrap4 .select2-selection--single {
         height: calc(1.5em + 0.75rem + 2px) !important;
+        border-radius: 4px;
+        border: 1px solid #ced4da;
     }
     .select2-container--bootstrap4 .select2-selection__rendered {
         line-height: calc(1.5em + 0.75rem) !important;
+        padding-left: 12px;
     }
+    .select2-container--bootstrap4 .select2-selection__arrow {
+        height: calc(1.5em + 0.75rem) !important;
+    }
+    
     .user-name {
         color: #2c3338;
         font-size: 14px;
@@ -52,27 +64,6 @@
     .select2-container--bootstrap4 .select2-results__option .text-muted {
         font-size: 12px;
         color: #6c757d !important;
-    }
-    /* Form elemanları için */
-    .modal select.form-select,
-    .modal select.form-control {
-        width: 100%;
-        padding: 8px;
-        border-radius: 4px;
-        border: 1px solid #ced4da;
-        display: block !important;
-        position: relative !important;
-        height: auto;
-    }
-    
-    /* Dropdown açılıp kapanma düzeltmesi */
-    .modal-content {
-        overflow: visible;
-    }
-    
-    /* Çakışmaları önlemek için */
-    .modal-backdrop {
-        z-index: 1040;
     }
     
     /* Search results styling */
@@ -247,85 +238,42 @@
             <form action="{{ route('admin.borrowings.store') }}" method="POST">
                 @csrf
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="user_id" class="form-label">Kullanıcı <span class="text-danger">*</span></label>
-                        <select class="form-select" id="user_id" name="user_id" required>
-                            <option value="">Kullanıcı Seçin</option>
-                            @forelse($users as $user)
-                                <option value="{{ $user->id }}">{{ $user->name }} ({{ $user->email }})</option>
-                            @empty
-                                <option value="" disabled>Kullanıcı bulunamadı</option>
-                            @endforelse
+                    <!-- Kullanıcı Seçimi -->
+                    <div class="form-group mb-3">
+                        <label for="user_id">Kullanıcı <span class="text-danger">*</span></label>
+                        <select class="form-control select2-users" id="user_id" name="user_id" required>
+                            <option value="">Kullanıcı seçin veya aramaya başlayın...</option>
                         </select>
-                        <small class="text-muted">
-                            Listede {{ count($users) }} kullanıcı var. Personel ve yöneticiler gösterilmemektedir.
-                            <a href="{{ route('admin.users.index') }}" target="_blank" class="text-primary">Kullanıcı eklemek için tıklayın</a>
-                        </small>
                     </div>
-                    
-                    <div class="mb-3">
-                        <label for="book_search" class="form-label">Kitap <span class="text-danger">*</span></label>
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="book_search" placeholder="Kitap adı, yazar veya ISBN'e göre arama yapın...">
-                            <button class="btn btn-outline-secondary" type="button" id="clearBookSearch">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                        <small class="text-muted">En az 2 karakter girerek arama yapabilirsiniz</small>
-                        
-                        <!-- Hidden input to store selected book ID -->
-                        <input type="hidden" id="book_id" name="book_id" required>
-                        
-                        <div id="searchResults" class="list-group mt-2 d-none">
-                            <!-- Search results will be populated here -->
-                        </div>
-                        
-                        <div id="selectedBook" class="card mt-2 d-none">
-                            <div class="card-body p-3">
-                                <div class="d-flex align-items-center">
-                                    <div class="book-logo me-3">
-                                        <img src="{{ asset('images/icons/book-logo.png') }}" alt="Kitap" style="width: 60px; height: auto;">
-                                    </div>
-                                    <div class="flex-grow-1">
-                                        <h6 class="card-title mb-1" id="selected-title"></h6>
-                                        <p class="card-text mb-1 small" id="selected-authors"></p>
-                                        <div class="card-text small text-muted mb-1">
-                                            <span><strong>Yayınevi:</strong> <span id="selected-publisher"></span></span> | 
-                                            <span><strong>Yıl:</strong> <span id="selected-year"></span></span> | 
-                                            <span><strong>Kategori:</strong> <span id="selected-category"></span></span>
-                                        </div>
-                                        <div class="card-text small text-muted">
-                                            <span id="selected-isbn"></span> | 
-                                            <span><strong>Sayfa:</strong> <span id="selected-pages"></span></span> | 
-                                            <span><strong>Dil:</strong> <span id="selected-language"></span></span>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <span class="badge bg-success" id="selected-stock"></span>
-                                    </div>
-                                </div>
-                            </div>
+
+                    <!-- Kitap Seçimi -->
+                    <div class="form-group mb-3">
+                        <label for="book_search">ISBN veya kitap adı ile ara</label>
+                        <input type="text" class="form-control" id="book_search" placeholder="ISBN veya kitap adı...">
+                        <div id="searchResults" class="list-group mt-2 d-none"></div>
+                        <input type="hidden" name="book_id" id="book_id" required>
+                        <div id="selectedBook" class="p-2 mt-2 d-none">
+                            <h6 class="book-title mb-1"></h6>
+                            <p class="book-details mb-0 small"></p>
                         </div>
                     </div>
-                    
-                    <div class="mb-3">
-                        <label for="borrow_date" class="form-label">Ödünç Alma Tarihi <span class="text-danger">*</span></label>
-                        <input type="date" class="form-control" id="borrow_date" name="borrow_date" value="{{ date('Y-m-d') }}" required>
+
+                    <!-- Veriliş Tarihi -->
+                    <div class="form-group mb-3">
+                        <label for="borrow_date">Veriliş Tarihi <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" id="borrow_date" name="borrow_date" required value="{{ date('Y-m-d') }}">
                     </div>
-                    
-                    <div class="mb-3">
-                        <label for="due_date" class="form-label">Son İade Tarihi <span class="text-danger">*</span></label>
-                        <input type="date" class="form-control" id="due_date" name="due_date" value="{{ date('Y-m-d', strtotime('+15 days')) }}" required>
+
+                    <!-- İade Tarihi -->
+                    <div class="form-group mb-3">
+                        <label for="due_date">İade Tarihi <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" id="due_date" name="due_date" required value="{{ date('Y-m-d', strtotime('+15 days')) }}">
                     </div>
-                    
-                    <div class="mb-3">
-                        <label for="notes" class="form-label">Notlar</label>
+
+                    <!-- Notlar -->
+                    <div class="form-group">
+                        <label for="notes">Notlar</label>
                         <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
-                    </div>
-                    
-                    <div class="form-check mb-3">
-                        <input type="checkbox" class="form-check-input" id="auto_approve" name="auto_approve" value="1" checked>
-                        <label class="form-check-label" for="auto_approve">Otomatik Onayla</label>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -340,434 +288,298 @@
 
 @section('scripts')
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/i18n/tr.js"></script>
 <script type="text/javascript" src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
 <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+
 <script>
-    $(document).ready(function() {
-        // Initialize Select2 for user dropdown
-        $('#user_id').select2({
-            theme: 'bootstrap4',
-            placeholder: 'Kullanıcı seçin',
-            allowClear: true,
-            width: '100%',
-            dropdownParent: $('#addBorrowingModal'),
-            templateResult: formatUserOption,
-            templateSelection: formatUserOption,
-            escapeMarkup: function(markup) {
-                return markup;
-            }
-        });
-        
-        function formatUserOption(user) {
-            if (!user.id) return user.text;
-            return $('<div class="d-flex flex-column">' +
-                '<strong class="user-name">' + user.text.split(' (')[0] + '</strong>' +
-                '<small class="text-muted">' + user.text.split(' (')[1].replace(')', '') + '</small>' +
-                '</div>');
-        }
-        
-        // Book search functionality
-        $('#book_search').on('input', function() {
-            const searchTerm = $(this).val().toLowerCase();
-            
-            // Hide selected book card when search input changes
-            $('#selectedBook').addClass('d-none');
-            // Clear the hidden input
-            $('#book_id').val('');
-            
-            if (searchTerm.length < 2) {
-                $('#searchResults').addClass('d-none');
-                return;
-            }
-            
-            // Log the search attempt
-            console.log("Searching for books with term:", searchTerm);
-            
-            // Create some sample dummy books when testing
-            const dummyBooks = [
-                {
-                    id: 1,
-                    title: "Masumiyet Müzesi",
-                    author_names: "Orhan Pamuk",
-                    isbn: "9789750719387", 
-                    available_quantity: 3,
-                    total_quantity: 5,
-                    publisher: "Yapı Kredi Yayınları",
-                    publication_year: 2008,
-                    category: "Roman",
-                    page_count: 592,
-                    language: "Türkçe"
-                },
-                {
-                    id: 2,
-                    title: "Benim Adım Kırmızı",
-                    author_names: "Orhan Pamuk",
-                    isbn: "9789750837104",
-                    available_quantity: 2,
-                    total_quantity: 4,
-                    publisher: "Yapı Kredi Yayınları",
-                    publication_year: 1998,
-                    category: "Roman",
-                    page_count: 472,
-                    language: "Türkçe"
-                },
-                {
-                    id: 3,
-                    title: "Kar",
-                    author_names: "Orhan Pamuk",
-                    isbn: "9789750802331",
-                    available_quantity: 0,
-                    total_quantity: 2,
-                    publisher: "Yapı Kredi Yayınları",
-                    publication_year: 2002,
-                    category: "Roman",
-                    page_count: 352,
-                    language: "Türkçe"
-                }
-            ];
-            
-            // Filter dummy books based on search term
-            const filteredBooks = dummyBooks.filter(book => 
-                book.title.toLowerCase().includes(searchTerm) || 
-                book.author_names.toLowerCase().includes(searchTerm) || 
-                book.isbn.includes(searchTerm) ||
-                book.publisher.toLowerCase().includes(searchTerm)
-            );
-            
-            // Display results
-            $('#searchResults').removeClass('d-none').empty();
-            
-            if (filteredBooks.length === 0) {
-                $('#searchResults').append('<div class="list-group-item">Sonuç bulunamadı</div>');
-                return;
-            }
-            
-            // Display books
-            $.each(filteredBooks, function(index, book) {
-                const title = book.title;
-                const authors = book.author_names || '';
-                const isbn = book.isbn || '';
-                const stock = book.available_quantity || 0;
-                const isDisabled = stock <= 0;
-                
-                // Highlight matching text
-                const highlightedTitle = highlightText(title, searchTerm);
-                const highlightedAuthors = highlightText(authors, searchTerm);
-                const highlightedIsbn = highlightText(isbn, searchTerm);
-                const highlightedPublisher = highlightText(book.publisher, searchTerm);
-                
-                const html = `
-                    <a href="#" class="list-group-item list-group-item-action ${isDisabled ? 'disabled text-muted' : ''}" 
-                       data-id="${book.id}"
-                       data-title="${title}"
-                       data-authors="${authors}"
-                       data-isbn="${isbn}"
-                       data-publisher="${book.publisher}"
-                       data-year="${book.publication_year}"
-                       data-category="${book.category}"
-                       data-pages="${book.page_count}"
-                       data-language="${book.language}"
-                       data-stock="${stock}">
-                        <div class="d-flex align-items-center">
-                            <div class="book-logo me-2">
-                                <img src="{{ asset('images/icons/book-logo.png') }}" alt="Kitap" style="width: 40px; height: auto;">
-                            </div>
-                            <div class="flex-grow-1">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <h6 class="mb-1">${highlightedTitle}</h6>
-                                    <small class="text-${stock > 0 ? 'success' : 'danger'}">
-                                        ${stock > 0 ? `Stok: ${stock}` : 'Stokta Yok'}
-                                    </small>
-                                </div>
-                                <p class="mb-1">
-                                    <span class="text-muted">Yazar:</span> ${highlightedAuthors}
-                                </p>
-                                <div class="small text-muted mb-1">
-                                    <span><strong>Yayınevi:</strong> ${highlightedPublisher}</span> | 
-                                    <span><strong>Yıl:</strong> ${book.publication_year}</span> | 
-                                    <span><strong>Kategori:</strong> ${book.category}</span>
-                                </div>
-                                <div class="small text-muted">
-                                    <span><strong>ISBN:</strong> ${highlightedIsbn}</span> | 
-                                    <span><strong>Sayfa:</strong> ${book.page_count}</span> | 
-                                    <span><strong>Dil:</strong> ${book.language}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </a>
-                `;
-                
-                $('#searchResults').append(html);
-            });
-        });
-        
-        // Function to highlight matching text
-        function highlightText(text, searchTerm) {
-            if (!text || !searchTerm) return text;
-            
-            const regex = new RegExp('(' + searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
-            return text.replace(regex, '<span class="search-highlight">$1</span>');
-        }
-        
-        // Listen for Enter key in search field
-        $('#book_search').keydown(function(e) {
-            if (e.keyCode === 13) { // Enter key
-                e.preventDefault();
-                // Select the first result
-                $('#searchResults a:not(.disabled):first').click();
-            }
-        });
-        
-        // Handle book selection from search results
-        $(document).on('click', '#searchResults a', function(e) {
-            e.preventDefault();
-            
-            if ($(this).hasClass('disabled')) return;
-            
-            const bookId = $(this).data('id');
-            const title = $(this).data('title');
-            const authors = $(this).data('authors');
-            const isbn = $(this).data('isbn');
-            const stock = $(this).data('stock');
-            const publisher = $(this).data('publisher');
-            const publicationYear = $(this).data('year');
-            const category = $(this).data('category');
-            const pageCount = $(this).data('pages');
-            const language = $(this).data('language');
-            
-            // Set the selected value in the hidden input
-            $('#book_id').val(bookId).trigger('change');
-            
-            // Update the search input and hide results
-            $('#book_search').val(title);
-            $('#searchResults').addClass('d-none');
-            
-            // Show the selected book card with detailed information
-            $('#selected-title').text(title);
-            $('#selected-authors').text(authors);
-            $('#selected-isbn').text(`ISBN: ${isbn}`);
-            $('#selected-publisher').text(publisher);
-            $('#selected-year').text(publicationYear);
-            $('#selected-category').text(category);
-            $('#selected-pages').text(pageCount);
-            $('#selected-language').text(language);
-            $('#selected-stock').text(`Stok: ${stock}`);
-            $('#selectedBook').removeClass('d-none');
-        });
-        
-        // Clear search
-        $('#clearBookSearch').on('click', function() {
-            $('#book_search').val('');
-            $('#searchResults').addClass('d-none');
-            $('#selectedBook').addClass('d-none');
-            $('#book_id').val('');
-        });
-        
-        // DataTable Initialization
-        $('#borrowingsTable').DataTable({
-            "language": {
-                "url": "//cdn.datatables.net/plug-ins/1.10.25/i18n/Turkish.json"
+$(document).ready(function() {
+    // Initialize Select2 for user search
+    $('.select2-users').select2({
+        theme: 'bootstrap4',
+        language: 'tr',
+        placeholder: 'Kullanıcı seçin veya aramaya başlayın...',
+        allowClear: true,
+        width: '100%',
+        dropdownParent: $('#addBorrowingModal'),
+        ajax: {
+            url: '{{ route("admin.borrowings.search.users") }}',
+            dataType: 'json',
+            delay: 250,
+            data: function(params) {
+                return {
+                    search: params.term || '',
+                    page: params.page || 1
+                };
             },
-            "pageLength": 25,
-            "ordering": true,
-            "paging": false,
-            "info": false,
-            "searching": false
-        });
+            processResults: function(data) {
+                return {
+                    results: data.map(function(item) {
+                        return {
+                            id: item.id,
+                            text: item.text,
+                            name: item.name,
+                            email: item.email
+                        };
+                    })
+                };
+            },
+            cache: true
+        },
+        minimumInputLength: 2,
+        templateResult: formatUser,
+        templateSelection: formatUserSelection,
+        escapeMarkup: function(markup) {
+            return markup;
+        }
+    }).on('select2:open', function() {
+        setTimeout(function() {
+            $('.select2-search__field').focus();
+        }, 100);
+    });
+
+    // Format user in dropdown
+    function formatUser(user) {
+        if (!user.id) return user.text;
+        return $(`
+            <div class="d-flex flex-column">
+                <div class="user-name">${user.name}</div>
+                <small class="text-muted">${user.email}</small>
+            </div>
+        `);
+    }
+
+    // Format selected user
+    function formatUserSelection(user) {
+        if (!user.id) return user.text;
+        return user.text;
+    }
+
+    // Book search functionality
+    let searchTimeout = null;
+    $('#book_search').on('input', function() {
+        clearTimeout(searchTimeout);
+        const searchTerm = $(this).val();
+        const $searchResults = $('#searchResults');
         
-        // Modal açıldığında form verilerini sıfırla
-        $('#addBorrowingModal').on('shown.bs.modal', function() {
-            console.log('Modal açıldı, kullanıcı sayısı: ' + {{ count($users) }});
-            $(this).find('form')[0].reset();
-        });
+        if (searchTerm.length < 2) {
+            $searchResults.addClass('d-none').html('');
+            return;
+        }
+
+        searchTimeout = setTimeout(function() {
+            $.get('{{ route("admin.borrowings.search.books") }}', { search: searchTerm })
+                .done(function(data) {
+                    if (data.length === 0) {
+                        $searchResults.html('<div class="list-group-item">Sonuç bulunamadı</div>').removeClass('d-none');
+                        return;
+                    }
+
+                    const results = data.map(book => `
+                        <a href="#" class="list-group-item list-group-item-action book-result" 
+                           data-id="${book.id}" 
+                           data-title="${book.title}"
+                           data-isbn="${book.isbn}"
+                           data-author="${book.author}"
+                           data-publisher="${book.publisher}"
+                           data-year="${book.publication_year}"
+                           data-available="${book.available_count}"
+                           data-total="${book.total_count}">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">${book.title}</h6>
+                                    <div class="small text-muted">
+                                        <div><strong>Yazar:</strong> ${book.author}</div>
+                                        <div><strong>Yayınevi:</strong> ${book.publisher}</div>
+                                        <div><strong>ISBN:</strong> ${book.isbn}</div>
+                                        <div><strong>Yayın Yılı:</strong> ${book.publication_year}</div>
+                                    </div>
+                                </div>
+                                <div class="text-end ms-3">
+                                    <span class="badge bg-primary">${book.available_count}/${book.total_count} adet</span>
+                                </div>
+                            </div>
+                        </a>
+                    `).join('');
+
+                    $searchResults.html(results).removeClass('d-none');
+                });
+        }, 300);
+    });
+
+    // Handle book selection
+    $(document).on('click', '.book-result', function(e) {
+        e.preventDefault();
+        const $this = $(this);
+        const bookId = $this.data('id');
+        const bookTitle = $this.data('title');
+        const bookIsbn = $this.data('isbn');
+        const bookAuthor = $this.data('author');
+        const bookPublisher = $this.data('publisher');
+        const bookYear = $this.data('year');
+        const availableCount = $this.data('available');
+        const totalCount = $this.data('total');
+
+        $('#book_id').val(bookId);
+        $('#searchResults').addClass('d-none');
+        $('#book_search').val(bookTitle);
+
+        const $selectedBook = $('#selectedBook');
+        $selectedBook.removeClass('d-none')
+            .find('.book-title').text(bookTitle);
+        $selectedBook.find('.book-details').html(`
+            <div><strong>Yazar:</strong> ${bookAuthor}</div>
+            <div><strong>Yayınevi:</strong> ${bookPublisher}</div>
+            <div><strong>ISBN:</strong> ${bookIsbn}</div>
+            <div><strong>Yayın Yılı:</strong> ${bookYear}</div>
+            <div><strong>Mevcut:</strong> ${availableCount}/${totalCount} adet</div>
+        `);
+    });
+
+    // Hide search results when clicking outside
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('#book_search, #searchResults').length) {
+            $('#searchResults').addClass('d-none');
+        }
+    });
+
+    // Tarih kontrolü
+    $('#borrow_date, #due_date').on('change', function() {
+        const borrowDate = new Date($('#borrow_date').val());
+        const dueDate = new Date($('#due_date').val());
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Veriliş tarihi bugünden önce olamaz
+        if (borrowDate < today) {
+            alert('Veriliş tarihi bugünden önce olamaz');
+            $('#borrow_date').val(today.toISOString().split('T')[0]);
+            return;
+        }
+
+        // İade tarihi veriliş tarihinden önce olamaz
+        if (dueDate <= borrowDate) {
+            alert('İade tarihi veriliş tarihinden sonra olmalıdır');
+            $('#due_date').val('');
+            return;
+        }
+
+        // Maksimum 30 gün kuralı
+        const maxDueDate = new Date(borrowDate);
+        maxDueDate.setDate(maxDueDate.getDate() + 30);
+        if (dueDate > maxDueDate) {
+            alert('İade tarihi veriliş tarihinden en fazla 30 gün sonra olabilir');
+            $('#due_date').val(maxDueDate.toISOString().split('T')[0]);
+        }
+    });
+
+    // DataTable Initialization
+    $('#borrowingsTable').DataTable({
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.10.25/i18n/Turkish.json"
+        },
+        "pageLength": 25,
+        "ordering": true,
+        "paging": false,
+        "info": false,
+        "searching": false
+    });
+    
+    // Modal açıldığında form verilerini sıfırla
+    $('#addBorrowingModal').on('shown.bs.modal', function() {
+        console.log('Modal açıldı, kullanıcı sayısı: ' + {{ count($users) }});
+        $(this).find('form')[0].reset();
+    });
+    
+    // DateRangePicker Initialization
+    $('#dateRange').daterangepicker({
+        opens: 'left',
+        autoUpdateInput: false,
+        locale: {
+            format: 'DD.MM.YYYY',
+            separator: ' - ',
+            applyLabel: 'Uygula',
+            cancelLabel: 'İptal',
+            fromLabel: 'Başlangıç',
+            toLabel: 'Bitiş',
+            customRangeLabel: 'Özel Aralık',
+            weekLabel: 'H',
+            daysOfWeek: ['Pz', 'Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct'],
+            monthNames: ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'],
+            firstDay: 1
+        }
+    });
+    
+    $('#dateRange').on('apply.daterangepicker', function(ev, picker) {
+        $(this).val(picker.startDate.format('DD.MM.YYYY') + ' - ' + picker.endDate.format('DD.MM.YYYY'));
+    });
+    
+    $('#dateRange').on('cancel.daterangepicker', function(ev, picker) {
+        $(this).val('');
+    });
+    
+    // Return Borrowing Modal
+    $('.return-borrowing').click(function() {
+        var id = $(this).data('id');
+        var book = $(this).data('book');
+        var user = $(this).data('user');
         
-        // DateRangePicker Initialization
-        $('#dateRange').daterangepicker({
-            opens: 'left',
-            autoUpdateInput: false,
-            locale: {
-                format: 'DD.MM.YYYY',
-                separator: ' - ',
-                applyLabel: 'Uygula',
-                cancelLabel: 'İptal',
-                fromLabel: 'Başlangıç',
-                toLabel: 'Bitiş',
-                customRangeLabel: 'Özel Aralık',
-                weekLabel: 'H',
-                daysOfWeek: ['Pz', 'Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct'],
-                monthNames: ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'],
-                firstDay: 1
-            }
-        });
+        $('#returnBorrowingForm').attr('action', "{{ route('admin.borrowings.return', ':id') }}".replace(':id', id));
+        $('#return_book_title').text(book);
+        $('#return_user_name').text(user);
+    });
+    
+    // View Borrowing Modal
+    $('.view-borrowing').click(function() {
+        var id = $(this).data('id');
         
-        $('#dateRange').on('apply.daterangepicker', function(ev, picker) {
-            $(this).val(picker.startDate.format('DD.MM.YYYY') + ' - ' + picker.endDate.format('DD.MM.YYYY'));
-        });
-        
-        $('#dateRange').on('cancel.daterangepicker', function(ev, picker) {
-            $(this).val('');
-        });
-        
-        // Return Borrowing Modal
-        $('.return-borrowing').click(function() {
-            var id = $(this).data('id');
-            var book = $(this).data('book');
-            var user = $(this).data('user');
-            
-            $('#returnBorrowingForm').attr('action', "{{ route('admin.borrowings.return', ':id') }}".replace(':id', id));
-            $('#return_book_title').text(book);
-            $('#return_user_name').text(user);
-        });
-        
-        // View Borrowing Modal
-        $('.view-borrowing').click(function() {
-            var id = $(this).data('id');
-            
-            // Reset content and show loader
-            $('#borrowingDetailContent').html(`
-                <div class="text-center mb-4">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Yükleniyor...</span>
-                    </div>
-                    <p class="mt-2">Bilgiler yükleniyor...</p>
+        // Reset content and show loader
+        $('#borrowingDetailContent').html(`
+            <div class="text-center mb-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Yükleniyor...</span>
                 </div>
-            `);
-            
-            // Get borrowing details via AJAX
-            $.get("{{ route('admin.borrowings.show', ':id') }}".replace(':id', id), function(data) {
-                if (data.html) {
-                    $('#borrowingDetailContent').html(data.html);
-                } else {
-                    $('#borrowingDetailContent').html('<div class="alert alert-danger">Bilgiler yüklenirken bir hata oluştu.</div>');
-                }
-            }).fail(function() {
+                <p class="mt-2">Bilgiler yükleniyor...</p>
+            </div>
+        `);
+        
+        // Get borrowing details via AJAX
+        $.get("{{ route('admin.borrowings.show', ':id') }}".replace(':id', id), function(data) {
+            if (data.html) {
+                $('#borrowingDetailContent').html(data.html);
+            } else {
                 $('#borrowingDetailContent').html('<div class="alert alert-danger">Bilgiler yüklenirken bir hata oluştu.</div>');
-            });
-        });
-        
-        // Approve Borrowing Modal
-        $('.approve-borrowing').click(function() {
-            var id = $(this).data('id');
-            
-            $('#approveBorrowingForm').attr('action', "{{ route('admin.borrowings.update-status', ':id') }}".replace(':id', id));
-        });
-        
-        // Reject Borrowing Modal
-        $('.reject-borrowing').click(function() {
-            var id = $(this).data('id');
-            
-            $('#rejectBorrowingForm').attr('action', "{{ route('admin.borrowings.update-status', ':id') }}".replace(':id', id));
-        });
-        
-        // Delete Borrowing Modal
-        $('.delete-borrowing').click(function() {
-            var id = $(this).data('id');
-            var book = $(this).data('book');
-            var user = $(this).data('user');
-            
-            $('#deleteBorrowingForm').attr('action', "{{ route('admin.borrowings.destroy', ':id') }}".replace(':id', id));
-            $('#delete_book_title').text(book);
-            $('#delete_user_name').text(user);
-        });
-        
-        // Validate due date is after borrow date and enforce 30-day maximum
-        $('#borrow_date, #due_date').on('change', function() {
-            var borrowDate = new Date($('#borrow_date').val());
-            var dueDate = new Date($('#due_date').val());
-            
-            // Maksimum 30 gün kuralı - maximum 30 days rule
-            var maxDueDate = new Date(borrowDate);
-            maxDueDate.setDate(maxDueDate.getDate() + 30);
-            
-            // Format dates for comparison
-            var today = new Date();
-            today.setHours(0, 0, 0, 0);
-            
-            // Ensure borrow date is not in the past
-            if (borrowDate < today) {
-                alert('Ödünç alma tarihi geçmiş bir tarih olamaz.');
-                $('#borrow_date').val(formatDate(today));
-                borrowDate = today;
-                
-                // Recalculate max due date
-                maxDueDate = new Date(today);
-                maxDueDate.setDate(maxDueDate.getDate() + 30);
             }
-            
-            // Ensure due date is after borrow date
-            if (dueDate <= borrowDate) {
-                alert('Son iade tarihi, ödünç alma tarihinden sonra olmalıdır.');
-                var newDueDate = new Date(borrowDate);
-                newDueDate.setDate(newDueDate.getDate() + 15); // Default to 15 days initially
-                $('#due_date').val(formatDate(newDueDate));
-                dueDate = newDueDate;
-            }
-            
-            // Ensure due date is not more than 30 days after borrow date
-            if (dueDate > maxDueDate) {
-                alert('Son iade tarihi, ödünç alma tarihinden en fazla 30 gün sonra olabilir.');
-                $('#due_date').val(formatDate(maxDueDate));
-            }
-        });
-        
-        // Set max attribute for due_date input based on borrow_date
-        $('#borrow_date').on('change', function() {
-            var borrowDate = new Date($(this).val());
-            var maxDueDate = new Date(borrowDate);
-            maxDueDate.setDate(maxDueDate.getDate() + 30);
-            
-            // Set max attribute for due_date
-            $('#due_date').attr('max', formatDate(maxDueDate));
-        });
-        
-        // Initialize the max attribute on page load
-        $(document).ready(function() {
-            var borrowDate = new Date($('#borrow_date').val());
-            var maxDueDate = new Date(borrowDate);
-            maxDueDate.setDate(maxDueDate.getDate() + 30);
-            
-            // Set max attribute for due_date
-            $('#due_date').attr('max', formatDate(maxDueDate));
-        });
-        
-        // Add Borrowing Modal - Yeni Ödünç Verme İşlemi
-        $('#addBorrowingModal').on('shown.bs.modal', function () {
-            // Form validasyonu
-            var borrowDateInput = $('#borrow_date');
-            var dueDateInput = $('#due_date');
-            
-            // Tarihleri kontrol et
-            function checkDates() {
-                var borrowDate = new Date(borrowDateInput.val());
-                var dueDate = new Date(dueDateInput.val());
-                
-                if (dueDate <= borrowDate) {
-                    alert('Son iade tarihi, ödünç alma tarihinden sonra olmalıdır.');
-                    var newDueDate = new Date(borrowDate);
-                    newDueDate.setDate(newDueDate.getDate() + 15);
-                    dueDateInput.val(formatDate(newDueDate));
-                }
-            }
-            
-            // Tarih formatlama yardımcı fonksiyonu
-            function formatDate(date) {
-                var d = new Date(date),
-                    month = '' + (d.getMonth() + 1),
-                    day = '' + d.getDate(),
-                    year = d.getFullYear();
-            
-                if (month.length < 2) 
-                    month = '0' + month;
-                if (day.length < 2) 
-                    day = '0' + day;
-            
-                return [year, month, day].join('-');
-            }
-            
-            borrowDateInput.on('change', checkDates);
-            dueDateInput.on('change', checkDates);
+        }).fail(function() {
+            $('#borrowingDetailContent').html('<div class="alert alert-danger">Bilgiler yüklenirken bir hata oluştu.</div>');
         });
     });
+    
+    // Approve Borrowing Modal
+    $('.approve-borrowing').click(function() {
+        var id = $(this).data('id');
+        
+        $('#approveBorrowingForm').attr('action', "{{ route('admin.borrowings.update-status', ':id') }}".replace(':id', id));
+    });
+    
+    // Reject Borrowing Modal
+    $('.reject-borrowing').click(function() {
+        var id = $(this).data('id');
+        
+        $('#rejectBorrowingForm').attr('action', "{{ route('admin.borrowings.update-status', ':id') }}".replace(':id', id));
+    });
+    
+    // Delete Borrowing Modal
+    $('.delete-borrowing').click(function() {
+        var id = $(this).data('id');
+        var book = $(this).data('book');
+        var user = $(this).data('user');
+        
+        $('#deleteBorrowingForm').attr('action', "{{ route('admin.borrowings.destroy', ':id') }}".replace(':id', id));
+        $('#delete_book_title').text(book);
+        $('#delete_user_name').text(user);
+    });
+});
 </script>
 @endsection
 

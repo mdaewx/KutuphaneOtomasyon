@@ -44,8 +44,8 @@
                     <div class="col-md-6">
                         <div class="form-group">
                             <label for="author_id">Yazarlar <span class="text-danger">*</span></label>
-                            <select class="form-control @error('author_id') is-invalid @enderror" id="author_id" name="author_id" required>
-                                <option value="">Yazar seçin...</option>
+                            <select class="form-control select2-authors @error('author_id') is-invalid @enderror" id="author_id" name="author_id" required>
+                                <option value="">Yazar seçin veya aramak için yazmaya başlayın...</option>
                                 @foreach($authors as $author)
                                     <option value="{{ $author->id }}" {{ old('author_id') == $author->id ? 'selected' : '' }}>{{ $author->name }} {{ $author->surname }}</option>
                                 @endforeach
@@ -164,10 +164,38 @@
 @push('scripts')
 <script>
 $(document).ready(function() {
-    // Kategori, yazar ve yayınevi seçimleri için select2
-    $('#category_id, #publisher_id, #author_id, #language, #publication_year').select2({
+    // Kategori ve yayınevi seçimleri için select2
+    $('#category_id, #publisher_id, #language, #publication_year').select2({
         placeholder: 'Seçiniz',
         allowClear: true
+    });
+
+    // Yazar seçimi için gelişmiş select2
+    $('.select2-authors').select2({
+        placeholder: 'Yazar seçin veya aramak için yazmaya başlayın...',
+        allowClear: true,
+        minimumInputLength: 2,
+        ajax: {
+            url: '/staff/authors/search',
+            dataType: 'json',
+            delay: 250,
+            data: function (params) {
+                return {
+                    q: params.term
+                };
+            },
+            processResults: function (data) {
+                return {
+                    results: data.map(function(author) {
+                        return {
+                            id: author.id,
+                            text: author.name + ' ' + (author.surname || '')
+                        };
+                    })
+                };
+            },
+            cache: true
+        }
     });
 });
 </script>

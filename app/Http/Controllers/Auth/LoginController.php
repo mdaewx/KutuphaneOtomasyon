@@ -30,15 +30,19 @@ class LoginController extends Controller
     {
         $credentials = $request->validate([
             'email' => ['required', 'email'],
-            'password' => ['required'],
+            'password' => ['required', 'string'],
         ]);
 
-        if (Auth::attempt($credentials, $request->boolean('remember'))) {
+        // Şifre kontrolü için özel bir kontrol ekleyelim
+        $user = User::where('email', $request->email)->first();
+        
+        if ($user && Hash::check($request->password, $user->password)) {
+            Auth::login($user, $request->boolean('remember'));
             $request->session()->regenerate();
             
-            if (Auth::user()->hasRole('admin')) {
+            if ($user->hasRole('admin')) {
                 return redirect()->intended('/admin/dashboard');
-            } elseif (Auth::user()->hasRole('staff')) {
+            } elseif ($user->hasRole('staff')) {
                 return redirect()->intended('/staff/dashboard');
             }
             

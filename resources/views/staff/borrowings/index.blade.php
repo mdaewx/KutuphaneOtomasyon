@@ -113,7 +113,7 @@
                                 <small class="text-muted">Yazar: {{ $borrowing->book->author }}</small><br>
                                 <small class="text-muted">ISBN: {{ $borrowing->book->isbn }}</small>
                             </td>
-                            <td>{{ $borrowing->created_at ? $borrowing->created_at->format('d.m.Y') : '-' }}</td>
+                            <td>{{ $borrowing->borrow_date ? \Carbon\Carbon::parse($borrowing->borrow_date)->format('d.m.Y') : '-' }}</td>
                             <td>{{ $borrowing->due_date ? \Carbon\Carbon::parse($borrowing->due_date)->format('d.m.Y') : '-' }}</td>
                             <td>{{ $borrowing->returned_at ? \Carbon\Carbon::parse($borrowing->returned_at)->format('d.m.Y') : '-' }}</td>
                             <td>
@@ -125,6 +125,11 @@
                                     <span class="badge bg-success">Onaylandı</span>
                                 @elseif($borrowing->status == 'returned' || $borrowing->returned_at)
                                     <span class="badge bg-info">İade Edildi</span>
+                                    @if($borrowing->condition == 'damaged')
+                                        <span class="badge bg-warning">Hasarlı</span>
+                                    @elseif($borrowing->condition == 'lost')
+                                        <span class="badge bg-danger">Kayıp</span>
+                                    @endif
                                 @else
                                     <span class="badge bg-secondary">{{ $borrowing->status }}</span>
                                 @endif
@@ -148,28 +153,26 @@
             </div>
             
             <!-- Pagination -->
-            <div class="d-flex justify-content-center mt-4">
-                @if($borrowings instanceof \Illuminate\Pagination\LengthAwarePaginator)
-                    {{ $borrowings->appends(request()->all())->links() }}
-                @endif
+            <div class="mt-3">
+                {{ $borrowings->links() }}
             </div>
         </div>
     </div>
 </div>
 @endsection
 
-@push('scripts')
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script type="text/javascript" src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
-<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+@section('scripts')
+<script src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
 <script>
 $(document).ready(function() {
-    // Tarih aralığı seçici
     $('#dateRange').daterangepicker({
         autoUpdateInput: false,
         locale: {
-            cancelLabel: 'Temizle',
+            format: 'DD.MM.YYYY',
+            separator: ' - ',
             applyLabel: 'Uygula',
+            cancelLabel: 'İptal',
             fromLabel: 'Başlangıç',
             toLabel: 'Bitiş',
             customRangeLabel: 'Özel Aralık',
@@ -181,7 +184,7 @@ $(document).ready(function() {
     });
 
     $('#dateRange').on('apply.daterangepicker', function(ev, picker) {
-        $(this).val(picker.startDate.format('DD/MM/YYYY') + ' - ' + picker.endDate.format('DD/MM/YYYY'));
+        $(this).val(picker.startDate.format('DD.MM.YYYY') + ' - ' + picker.endDate.format('DD.MM.YYYY'));
     });
 
     $('#dateRange').on('cancel.daterangepicker', function(ev, picker) {
@@ -189,4 +192,4 @@ $(document).ready(function() {
     });
 });
 </script>
-@endpush 
+@endsection 

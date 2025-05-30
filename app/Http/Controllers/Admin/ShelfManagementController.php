@@ -183,10 +183,17 @@ class ShelfManagementController extends Controller
             'capacity' => 'required|integer|min:1'
         ]);
 
+        // En son raf numarasını bul
+        $lastShelf = Shelf::orderBy('id', 'desc')->first();
+        $nextId = $lastShelf ? $lastShelf->id + 1 : 1;
+        $shelfNumber = 'RAF-' . str_pad($nextId, 3, '0', STR_PAD_LEFT);
+
         Shelf::create([
             'name' => $request->name,
             'description' => $request->description,
-            'capacity' => $request->capacity
+            'capacity' => $request->capacity,
+            'shelf_number' => $shelfNumber,
+            'code' => $shelfNumber
         ]);
 
         return redirect()

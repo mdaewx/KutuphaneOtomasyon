@@ -12,6 +12,7 @@ class AcquisitionSource extends Model
     use HasFactory;
 
     protected $fillable = [
+        'name',
         'source_name',
         'source_type_id',
         'contact_person',
@@ -51,5 +52,24 @@ class AcquisitionSource extends Model
     public function authors()
     {
         return $this->belongsToMany(Author::class, 'acquisition_source_author');
+    }
+
+    /**
+     * Model kaydedilmeden önce
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::saving(function ($acquisitionSource) {
+            // Eğer source_name varsa ve name boşsa, source_name'i name'e kopyala
+            if (!empty($acquisitionSource->source_name) && empty($acquisitionSource->name)) {
+                $acquisitionSource->name = $acquisitionSource->source_name;
+            }
+            // Eğer name varsa ve source_name boşsa, name'i source_name'e kopyala
+            elseif (!empty($acquisitionSource->name) && empty($acquisitionSource->source_name)) {
+                $acquisitionSource->source_name = $acquisitionSource->name;
+            }
+        });
     }
 }

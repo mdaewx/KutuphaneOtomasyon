@@ -76,8 +76,8 @@
         }
 
         .book-card {
-            min-height: 370px;
-            max-height: 420px;
+            min-height: 450px;
+            max-height: 500px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -135,11 +135,20 @@
             border-radius: 8px;
             z-index: 2;
         }
+        .book-details {
+            font-size: 0.9rem;
+            padding: 0 0.5rem;
+        }
+        .book-details p {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
         @media (max-width: 991px) {
-            .book-card { min-height: 340px; max-height: 400px; }
+            .book-card { min-height: 420px; max-height: 480px; }
         }
         @media (max-width: 767px) {
-            .book-card { min-height: 300px; max-height: 370px; }
+            .book-card { min-height: 400px; max-height: 460px; }
             .book-card .card-title, .book-card .card-text { font-size: 0.98rem; }
         }
 
@@ -301,14 +310,36 @@
                             </div>
                             <div class="card-body">
                                 <h5 class="card-title">{{ $book->title }}</h5>
-                                <p class="card-text text-muted">{{ $book->authors->implode('full_name', ', ') }}</p>
-                                <div class="d-flex justify-content-between align-items-center">
-                                    @if(isset($book->is_available) ? $book->is_available : true)
-                                    <span class="text-success"><i class="fas fa-check-circle me-1"></i>Mevcut</span>
-                                    @else
-                                    <span class="text-danger"><i class="fas fa-times-circle me-1"></i>Ödünç Alındı</span>
+                                <div class="book-details">
+                                    <p class="card-text text-muted mb-1">
+                                        <i class="fas fa-user me-1"></i> {{ $book->authors->pluck('full_name')->join(', ') }}
+                                    </p>
+                                    <p class="card-text text-muted mb-1">
+                                        <i class="fas fa-building me-1"></i> 
+                                        @php
+                                            $publisherName = $book->publisher ? $book->publisher->name : ($book->publisher_id ? \App\Models\Publisher::find($book->publisher_id)->name : 'Belirtilmemiş');
+                                        @endphp
+                                        {{ $publisherName }}
+                                    </p>
+                                    @if($book->stocks->count() > 0)
+                                        <p class="card-text text-muted mb-1">
+                                            <i class="fas fa-bookmark me-1"></i> 
+                                            @foreach($book->stocks as $stock)
+                                                {{ $stock->shelf->name ?? 'Belirtilmemiş' }}
+                                                @if(!$loop->last), @endif
+                                            @endforeach
+                                        </p>
                                     @endif
-                                    <a href="{{ route('books.show', $book) }}" class="btn btn-outline-primary btn-sm">Detaylar</a>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-3">
+                                    <span class="badge {{ $book->isAvailable() ? 'bg-success' : 'bg-danger' }}">
+                                        {{ $book->isAvailable() ? 'Mevcut' : 'Mevcut Değil' }}
+                                    </span>
+                                    <div class="btn-group">
+                                        <a href="{{ route('books.show', $book) }}" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-eye"></i> Detay
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -419,7 +450,24 @@
                                 </div>
                                 <div class="card-body">
                                     <h5 class="card-title">${book.title}</h5>
-                                    <p class="card-text text-muted">${book.authors ? book.authors.map(author => author.full_name).join(', ') : ''}</p>
+                                    <div class="book-details">
+                                        <p class="card-text text-muted mb-1">
+                                            <i class="fas fa-user me-1"></i>
+                                            ${book.authors ? book.authors.map(author => author.full_name).join(', ') : ''}
+                                        </p>
+                                        <p class="card-text text-muted mb-1">
+                                            <i class="fas fa-building me-1"></i>
+                                            ${book.publisher ? book.publisher.name : 'Belirtilmemiş'}
+                                        </p>
+                                        <p class="card-text text-muted mb-1">
+                                            <i class="fas fa-barcode me-1"></i>
+                                            ${book.isbn ?? 'ISBN Belirtilmemiş'}
+                                        </p>
+                                        <p class="card-text text-muted mb-2">
+                                            <i class="fas fa-calendar me-1"></i>
+                                            ${book.publication_year ?? 'Yıl Belirtilmemiş'}
+                                        </p>
+                                    </div>
                                     <div class="d-flex justify-content-between align-items-center">
                                         ${isAvailable 
                                             ? `<span class="text-success"><i class="fas fa-check-circle me-1"></i>Mevcut</span>`

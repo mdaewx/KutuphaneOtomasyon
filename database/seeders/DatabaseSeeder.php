@@ -14,11 +14,8 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            RoleSeeder::class,
-            AdminSeeder::class,
-            StaffSeeder::class,
-            AcquisitionSourceTypeSeeder::class,
-            AcquisitionSourceSeeder::class,
+            PublisherSeeder::class,
+            AuthorSeeder::class,
         ]);
 
         // Rolleri oluştur
@@ -59,7 +56,6 @@ class DatabaseSeeder extends Seeder
         // Diğer seeder'ları çalıştır
         $this->call([
             CategorySeeder::class,
-            PublisherSeeder::class,
             ShelfSeeder::class,
         ]);
     }

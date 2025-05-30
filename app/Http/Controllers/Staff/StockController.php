@@ -50,29 +50,52 @@ class StockController extends Controller
             'shelf_id' => 'nullable|exists:shelves,id',
             'acquisition_source_id' => 'required|exists:acquisition_sources,id',
             'barcode' => 'nullable|string|max:50|unique:stocks',
-            'condition' => 'required|string|in:new,good,fair,poor',
-            'notes' => 'nullable|string'
+            'condition' => 'required|in:new,good,fair,poor',
+            'acquisition_date' => 'nullable|date',
+            'acquisition_price' => 'nullable|numeric|min:0',
+            'notes' => 'nullable|string',
+            'quantity' => 'required|integer|min:1|max:100'
         ]);
 
-        // Barkod otomatik oluşturma
-        if (empty($validatedData['barcode'])) {
-            $book = Book::find($validatedData['book_id']);
-            $stockCount = Stock::where('book_id', $book->id)->count() + 1;
-            $validatedData['barcode'] = 'BK' . str_pad($book->id, 5, '0', STR_PAD_LEFT) . '-' . str_pad($stockCount, 3, '0', STR_PAD_LEFT);
+        try {
+            \DB::beginTransaction();
+
+            $book = Book::findOrFail($validatedData['book_id']);
+
+            // Her kopya için stok oluştur
+            for ($i = 0; $i < $validatedData['quantity']; $i++) {
+                // Barkod oluştur
+                if (empty($validatedData['barcode'])) {
+                    $stockCount = Stock::where('book_id', $book->id)->count() + 1;
+                    $barcode = $book->isbn . '-' . str_pad($stockCount, 3, '0', STR_PAD_LEFT);
+                } else {
+                    $barcode = $validatedData['barcode'] . '-' . ($i + 1);
+                }
+
+                $stock = new Stock();
+                $stock->book_id = $validatedData['book_id'];
+                $stock->shelf_id = $validatedData['shelf_id'];
+                $stock->acquisition_source_id = $validatedData['acquisition_source_id'];
+                $stock->barcode = $barcode;
+                $stock->condition = $validatedData['condition'];
+                $stock->status = Stock::STATUS_AVAILABLE;
+                $stock->is_available = true;
+                $stock->acquisition_date = $validatedData['acquisition_date'] ?? now();
+                $stock->acquisition_price = $validatedData['acquisition_price'];
+                $stock->notes = $validatedData['notes'];
+                $stock->save();
+            }
+
+            \DB::commit();
+
+            return redirect()->route('staff.stocks.index')
+                ->with('success', 'Stok başarıyla eklendi.');
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            \Log::error('Stok ekleme hatası:', ['error' => $e->getMessage()]);
+            return back()->with('error', 'Stok eklenirken bir hata oluştu: ' . $e->getMessage());
         }
-
-        $stock = new Stock();
-        $stock->book_id = $validatedData['book_id'];
-        $stock->shelf_id = $validatedData['shelf_id'];
-        $stock->acquisition_source_id = $validatedData['acquisition_source_id'];
-        $stock->barcode = $validatedData['barcode'];
-        $stock->condition = $validatedData['condition'];
-        $stock->notes = $validatedData['notes'];
-        $stock->status = 'available';
-        $stock->save();
-
-        return redirect()->route('staff.stocks.index')
-            ->with('success', 'Stok başarıyla eklendi.');
     }
 
     public function show(Request $request, Stock $stock)
@@ -128,26 +151,78 @@ class StockController extends Controller
 
     public function searchBook(Request $request)
     {
-        $search = $request->get('search');
-        
-        if (empty($search)) {
-            return response()->json(['error' => 'Arama terimi gereklidir.'], 400);
-        }
+        try {
+            $this->checkStaffAccess($request);
+            
+            $search = $request->get('search');
+            
+            if (empty($search)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Arama terimi gereklidir.'
+                ], 400);
+            }
 
-        $book = Book::with(['authors', 'publisher', 'category', 'stocks'])
-            ->where('isbn', 'LIKE', "%{$search}%")
-            ->orWhere('title', 'LIKE', "%{$search}%")
-            ->first();
-        
-        if (!$book) {
-            return response()->json(['error' => 'Kitap bulunamadı.'], 404);
-        }
+            \Log::info('Staff stock search started', ['search_term' => $search]);
 
-        return response()->json([
-            'book' => $book,
-            'authors' => $book->authors->pluck('name')->join(', '),
-            'publisher' => $book->publisher ? $book->publisher->name : 'Belirtilmemiş',
-            'category' => $book->category ? $book->category->name : 'Belirtilmemiş'
-        ]);
+            // Search by ISBN or title
+            $book = Book::with(['authors', 'category'])
+                ->where(function($query) use ($search) {
+                    $query->where('isbn', 'LIKE', "%{$search}%")
+                          ->orWhere('title', 'LIKE', "%{$search}%");
+                })
+                ->first();
+            
+            if (!$book) {
+                \Log::info('No book found for search term', ['search_term' => $search]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kitap bulunamadı.'
+                ], 404);
+            }
+
+            // Format author names
+            $authorNames = $book->authors->map(function($author) {
+                return $author->name . ' ' . $author->surname;
+            })->join(', ');
+
+            // Get available stock count
+            $availableStockCount = $book->stocks()
+                ->where('status', 'available')
+                ->where('is_available', true)
+                ->count();
+
+            $response = [
+                'success' => true,
+                'book' => [
+                    'id' => $book->id,
+                    'title' => $book->title,
+                    'isbn' => $book->isbn,
+                    'authors' => $authorNames,
+                    'category' => $book->category ? $book->category->name : 'Belirtilmemiş',
+                    'available_copies' => $availableStockCount
+                ]
+            ];
+
+            \Log::info('Book found successfully', [
+                'book_id' => $book->id, 
+                'isbn' => $book->isbn,
+                'available_copies' => $availableStockCount
+            ]);
+            
+            return response()->json($response);
+
+        } catch (\Exception $e) {
+            \Log::error('Stock search error', [
+                'error' => $e->getMessage(),
+                'search' => $search ?? null,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Arama sırasında bir hata oluştu: ' . $e->getMessage()
+            ], 500);
+        }
     }
 } 

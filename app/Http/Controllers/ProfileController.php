@@ -20,9 +20,9 @@ class ProfileController extends Controller
         $totalBorrowings = $user->borrowings()->count();
         $activeBorrowings = $user->borrowings()->whereNull('returned_at')->count();
         
-        // fine_amount alanı yeni eklendiği için, veritabanında null değerler olabilir
+        // amount alanı yeni eklendiği için, veritabanında null değerler olabilir
         try {
-            $totalFines = $user->borrowings()->sum('fine_amount') ?? 0.00;
+            $totalFines = $user->borrowings()->sum('amount') ?? 0.00;
         } catch (\Exception $e) {
             $totalFines = 0.00;
         }
@@ -90,7 +90,7 @@ class ProfileController extends Controller
         // Gecikme cezası hesaplama
         if ($borrowing->due_date < now()) {
             $daysLate = now()->diffInDays($borrowing->due_date);
-            $borrowing->fine_amount = $daysLate * 1; // Günlük 1 TL ceza
+            $borrowing->amount = $daysLate * 1; // Günlük 1 TL ceza
         }
 
         $borrowing->save();

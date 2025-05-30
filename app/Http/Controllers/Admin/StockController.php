@@ -9,6 +9,7 @@ use App\Models\Shelf;
 use App\Models\AcquisitionSource;
 use App\Models\AcquisitionSourceType;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class StockController extends Controller
 {
@@ -40,44 +41,52 @@ class StockController extends Controller
             
             $validated = $request->validate([
                 'book_id' => 'required|exists:books,id',
-                'barcode' => 'required|string|unique:stocks,barcode',
+                'barcode' => 'required|string',
                 'shelf_id' => 'required|exists:shelves,id',
                 'acquisition_source_id' => 'required|exists:acquisition_sources,id',
                 'acquisition_date' => 'required|date',
-                'acquisition_price' => 'nullable|numeric|min:0'
+                'acquisition_price' => 'nullable|numeric|min:0',
+                'quantity' => 'required|integer|min:1|max:100'
             ]);
 
             // Edinme kaynağını kontrol et
             $acquisitionSource = AcquisitionSource::findOrFail($validated['acquisition_source_id']);
             
-            $stock = new Stock();
-            $stock->book_id = $validated['book_id'];
-            $stock->barcode = $validated['barcode'];
-            $stock->shelf_id = $validated['shelf_id'];
-            $stock->acquisition_source_id = $validated['acquisition_source_id'];
-            $stock->acquisition_date = $validated['acquisition_date'];
-            $stock->acquisition_price = $validated['acquisition_price'];
-            $stock->is_available = true;
-            $stock->condition = 'new';
-            
-            $stock->save();
+            // Raf kapasitesini kontrol et
+            $shelf = Shelf::findOrFail($validated['shelf_id']);
+            $currentShelfCount = Stock::where('shelf_id', $shelf->id)->count();
+            if ($currentShelfCount + $validated['quantity'] > $shelf->capacity) {
+                throw new \Exception('Seçilen rafın kapasitesi yetersiz. Lütfen başka bir raf seçin veya adet sayısını azaltın.');
+            }
 
-            // Kitabın available_quantity değerini artır
-            $book = Book::find($validated['book_id']);
-            $book->increment('available_quantity');
-            $book->increment('quantity');
+            // Her bir kopya için stok oluştur
+            for ($i = 0; $i < $validated['quantity']; $i++) {
+                $stock = new Stock();
+                $stock->book_id = $validated['book_id'];
+                // Barkod oluştur: Ana barkod + sıra numarası
+                $stock->barcode = $validated['barcode'] . '-' . str_pad(($i + 1), 3, '0', STR_PAD_LEFT);
+                $stock->shelf_id = $validated['shelf_id'];
+                $stock->acquisition_source_id = $validated['acquisition_source_id'];
+                $stock->acquisition_date = $validated['acquisition_date'];
+                $stock->acquisition_price = $validated['acquisition_price'];
+                $stock->is_available = true;
+                $stock->condition = 'new';
+                $stock->status = Stock::STATUS_AVAILABLE;  // Durumu 'available' olarak ayarla
+                
+                $stock->save();
+            }
 
             if ($request->ajax()) {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Stok başarıyla oluşturuldu.',
+                    'message' => 'Stoklar başarıyla oluşturuldu.',
                     'redirect' => route('admin.stocks.index')
                 ]);
             }
 
             return redirect()
                 ->route('admin.stocks.index')
-                ->with('success', 'Stok başarıyla oluşturuldu.');
+                ->with('success', 'Stoklar başarıyla oluşturuldu.');
         } catch (\Exception $e) {
             \Log::error('Stock creation error:', [
                 'error' => $e->getMessage(),
@@ -205,12 +214,23 @@ class StockController extends Controller
             $book->available_quantity = $book->stocks()->where('is_available', true)->count();
             $book->total_quantity = $book->stocks()->count();
             
-            // Kitap detaylarını hazırla
+            // Debug için log ekleyelim
+            \Log::info('Book details:', [
+                'book' => $book->toArray(),
+                'publisher' => $book->publisher ? $book->publisher->toArray() : null
+            ]);
+            
+            // Kitap detaylarını genişletilmiş şekilde hazırla
             $book->details = [
-                'authors' => $book->authors->pluck('name')->join(', '),
-                'publisher' => $book->publisher ? $book->publisher->name : '-',
+                'authors' => $book->authors->pluck('full_name')->join(', '),
+                'publisher' => $book->getPublisherNameAttribute(), // Publisher helper metodunu kullanalım
                 'category' => $book->category ? $book->category->name : '-',
-                'isbn' => $book->isbn
+                'isbn' => $book->isbn,
+                'publication_year' => $book->publication_year,
+                'page_count' => $book->page_count,
+                'language' => $book->language,
+                'available_quantity' => $book->available_quantity,
+                'total_quantity' => $book->total_quantity
             ];
         }
         

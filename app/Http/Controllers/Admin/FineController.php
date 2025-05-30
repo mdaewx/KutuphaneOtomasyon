@@ -38,7 +38,7 @@ class FineController extends Controller
         
         // Kullanıcı bazında toplam ceza tutarları
         $userFines = DB::table('fines')
-            ->select('user_id', DB::raw('SUM(fine_amount) as total_fine'))
+            ->select('user_id', DB::raw('SUM(amount) as total_fine'))
             ->groupBy('user_id')
             ->get();
         
@@ -125,7 +125,7 @@ class FineController extends Controller
         
         $overdueDays = $borrowing->getOverdueDays();
         $fineAmount = $overdueDays * $this->getDailyFineRate();
-        $borrowing->fine_amount = $fineAmount;
+        $borrowing->amount = $fineAmount;
         $borrowing->save();
         
         // Fine tablosuna kayıt ekle
@@ -134,7 +134,7 @@ class FineController extends Controller
             'book_id' => $borrowing->book_id,
             'borrowing_id' => $borrowing->id,
             'days_late' => $overdueDays,
-            'fine_amount' => $fineAmount,
+            'amount' => $fineAmount,
             'paid' => false
         ]);
         
@@ -169,7 +169,7 @@ class FineController extends Controller
     public function forgive($id)
     {
         $fine = Fine::findOrFail($id);
-        $fine->fine_amount = 0;
+        $fine->amount = 0;
         $fine->paid = true;
         $fine->paid_at = now();
         $fine->save();
@@ -199,8 +199,7 @@ class FineController extends Controller
         $request->validate([
             'user_id' => 'required|exists:users,id',
             'book_id' => 'required|exists:books,id',
-            'borrowing_id' => 'nullable|exists:borrowings,id',
-            'fine_amount' => 'required|numeric|min:0',
+            'amount' => 'required|numeric|min:0',
             'reason' => 'required|string',
             'notes' => 'nullable|string',
         ]);
@@ -208,9 +207,8 @@ class FineController extends Controller
         $fine = new Fine();
         $fine->user_id = $request->user_id;
         $fine->book_id = $request->book_id;
-        $fine->borrowing_id = $request->borrowing_id;
         $fine->days_late = 0; // Manuel girilen cezalar için varsayılan 0
-        $fine->fine_amount = $request->fine_amount;
+        $fine->amount = $request->amount;
         $fine->paid = $request->has('paid');
         
         if ($request->has('paid')) {
@@ -228,5 +226,23 @@ class FineController extends Controller
         
         return redirect()->route('admin.fines.index')
             ->with('success', 'Ceza başarıyla eklendi.');
+    }
+    
+    /**
+     * Seçilen üyenin ödünç aldığı kitapları getir (JSON)
+     */
+    public function getUserBooks($userId)
+    {
+        $books = Borrowing::with('book')
+            ->where('user_id', $userId)
+            ->whereNull('returned_at')
+            ->get()
+            ->map(function($borrowing) {
+                return [
+                    'id' => $borrowing->book->id,
+                    'title' => $borrowing->book->title
+                ];
+            });
+        return response()->json($books);
     }
 } 

@@ -11,20 +11,26 @@ class Book extends Model
 
     protected $fillable = [
         'title',
-        'category_id',
         'publisher_id',
+        'category_id',
         'isbn',
         'page_count',
         'language',
         'publication_year',
         'description',
-        'shelf_id'
+        'status'
+    ];
+
+    protected $attributes = [
+        'status' => 'available'
     ];
 
     protected $casts = [
         'publication_year' => 'integer',
         'page_count' => 'integer'
     ];
+
+    protected $appends = ['available_quantity', 'total_quantity'];
 
     // Ödünç verme işlemleri
     public function borrowings()
@@ -82,6 +88,30 @@ class Book extends Model
         return $this->hasMany(Stock::class);
     }
 
+    public function availableStocks()
+    {
+        return $this->stocks()
+            ->where('status', 'available')
+            ->where('is_available', true);
+    }
+
+    public function getAvailableStockCountAttribute()
+    {
+        return $this->availableStocks()->count();
+    }
+
+    public function getTotalStockCountAttribute()
+    {
+        return $this->stocks()->count();
+    }
+
+    public function getBorrowedStockCountAttribute()
+    {
+        return $this->stocks()
+            ->where('status', 'borrowed')
+            ->count();
+    }
+
     // Cezalar ilişkisi
     public function fines()
     {
@@ -101,35 +131,14 @@ class Book extends Model
     }
 
     /**
-     * Kitabın kullanılabilir olup olmadığını kontrol eder
-     */
-    public function isAvailable()
-    {
-        // Aktif ödünç kayıtları var mı kontrol et
-        $activeBorrowingsCount = $this->borrowings()->whereNull('returned_at')->count();
-        
-        // Eğer hiç aktif ödünç yoksa, kitap mevcuttur
-        if ($activeBorrowingsCount === 0) {
-            return true;
-        }
-        
-        // Eğer aktif ödünç varsa, stok sayısı ödünç sayısından fazla mı kontrol et
-        return $this->getTotalQuantityAttribute() > $activeBorrowingsCount;
-    }
-
-    /**
      * Kullanılabilir stok miktarını hesaplar
      */
     public function getAvailableQuantityAttribute()
     {
-        // Toplam stok sayısı
-        $totalStock = $this->getTotalQuantityAttribute();
-        
-        // Aktif ödünç sayısı
-        $activeBorrowings = $this->borrowings()->whereNull('returned_at')->count();
-        
-        // Kullanılabilir stok = Toplam stok - Aktif ödünç sayısı
-        return max(0, $totalStock - $activeBorrowings);
+        return $this->stocks()
+            ->where('is_available', true)
+            ->where('status', 'available')
+            ->count();
     }
 
     /**
@@ -138,6 +147,14 @@ class Book extends Model
     public function getTotalQuantityAttribute()
     {
         return $this->stocks()->count();
+    }
+
+    /**
+     * Kitabın kullanılabilir olup olmadığını kontrol eder
+     */
+    public function isAvailable()
+    {
+        return $this->getAvailableQuantityAttribute() > 0;
     }
 
     // Raf ilişkisi

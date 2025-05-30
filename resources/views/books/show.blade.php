@@ -182,7 +182,12 @@
                         </div>
                         <div class="meta-item">
                             <div class="meta-label">Yayınevi:</div>
-                            <div>{{ $book->publisher->name ?? 'Belirtilmemiş' }}</div>
+                            <div>
+                                @php
+                                    $publisherName = $book->publisher ? $book->publisher->name : ($book->publisher_id ? \App\Models\Publisher::find($book->publisher_id)->name : 'Belirtilmemiş');
+                                @endphp
+                                {{ $publisherName }}
+                            </div>
                         </div>
                         <div class="meta-item">
                             <div class="meta-label">Yayın Yılı:</div>

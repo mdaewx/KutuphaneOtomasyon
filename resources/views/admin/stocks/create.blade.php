@@ -66,6 +66,48 @@
                             </div>
                         </div>
                     </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>Yayınevi</label>
+                                <p class="form-control-static" id="bookPublisher"></p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>Kategori</label>
+                                <p class="form-control-static" id="bookCategory"></p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>Yayın Yılı</label>
+                                <p class="form-control-static" id="bookPublicationYear"></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>Sayfa Sayısı</label>
+                                <p class="form-control-static" id="bookPageCount"></p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>Dil</label>
+                                <p class="form-control-static" id="bookLanguage"></p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>Mevcut Stok</label>
+                                <p class="form-control-static">
+                                    <span id="bookAvailableQuantity"></span> / <span id="bookTotalQuantity"></span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Stok Bilgileri -->
@@ -74,8 +116,19 @@
                         <div class="form-group">
                             <label for="barcode">Barkod <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="barcode" name="barcode" value="{{ old('barcode') }}" required>
+                            <small class="form-text text-muted">Her kopya için bu barkoda sıra numarası eklenecektir. Örnek: 123-001, 123-002</small>
                         </div>
                     </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="quantity">Adet <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="quantity" name="quantity" value="{{ old('quantity', 1) }}" min="1" max="100" required>
+                            <small class="form-text text-muted">Eklenecek kopya sayısı (1-100 arası)</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
                     <div class="col-md-6">
                         <div class="form-group">
                             <label for="shelf_id">Raf <span class="text-danger">*</span></label>
@@ -83,9 +136,20 @@
                                 <option value="">Raf Seçin</option>
                                 @foreach($shelves as $shelf)
                                     <option value="{{ $shelf->id }}" {{ old('shelf_id') == $shelf->id ? 'selected' : '' }}>
-                                        {{ $shelf->name }}
+                                        {{ $shelf->name }} ({{ $shelf->stocks_count ?? 0 }}/{{ $shelf->capacity }} kitap)
                                     </option>
                                 @endforeach
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="condition">Kitap Durumu <span class="text-danger">*</span></label>
+                            <select class="form-control" id="condition" name="condition" required>
+                                <option value="new" {{ old('condition') == 'new' ? 'selected' : '' }}>Yeni</option>
+                                <option value="good" {{ old('condition') == 'good' ? 'selected' : '' }}>İyi</option>
+                                <option value="fair" {{ old('condition') == 'fair' ? 'selected' : '' }}>Orta</option>
+                                <option value="poor" {{ old('condition') == 'poor' ? 'selected' : '' }}>Kötü</option>
                             </select>
                         </div>
                     </div>
@@ -160,9 +224,17 @@ $(document).ready(function() {
             },
             success: function(response) {
                 if (response.book) {
+                    console.log('Book details:', response.book); // Debug için log
                     $('#book_id').val(response.book.id);
                     $('#bookTitle').text(response.book.title);
                     $('#bookAuthors').text(response.book.details.authors);
+                    $('#bookPublisher').text(response.book.details.publisher || 'Belirtilmemiş');
+                    $('#bookCategory').text(response.book.details.category);
+                    $('#bookPublicationYear').text(response.book.details.publication_year || '-');
+                    $('#bookPageCount').text(response.book.details.page_count || '-');
+                    $('#bookLanguage').text(response.book.details.language || '-');
+                    $('#bookAvailableQuantity').text(response.book.details.available_quantity);
+                    $('#bookTotalQuantity').text(response.book.details.total_quantity);
                     $('#bookDetails').removeClass('d-none');
                     
                     // Otomatik barkod oluştur

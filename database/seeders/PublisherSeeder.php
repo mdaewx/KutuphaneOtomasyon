@@ -7,7 +7,7 @@ use App\Models\Publisher;
 
 class PublisherSeeder extends Seeder
 {
-    public function run()
+    public function run(): void
     {
         $publishers = [
             ['name' => 'İş Bankası Kültür Yayınları'],
@@ -25,5 +25,14 @@ class PublisherSeeder extends Seeder
         foreach ($publishers as $publisher) {
             Publisher::create($publisher);
         }
+
+        Publisher::create([
+            'name' => 'Masumiyet Müzesi',
+            'address' => 'İstanbul',
+            'phone' => '0212 123 45 67',
+            'email' => 'info@masumiyetmuzesi.com',
+            'description' => 'Masumiyet Müzesi Yayınları',
+            'is_active' => true
+        ]);
     }
 } 

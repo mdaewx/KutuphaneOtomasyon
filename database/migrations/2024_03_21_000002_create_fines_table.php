@@ -13,14 +13,20 @@ return new class extends Migration
     {
         Schema::create('fines', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('borrowing_id')->constrained()->onDelete('cascade');
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->foreignId('book_id')->constrained()->onDelete('cascade');
-            $table->foreignId('borrowing_id')->constrained()->onDelete('cascade');
-            $table->integer('days_late')->nullable();
-            $table->decimal('fine_amount', 5, 2);
-            $table->boolean('paid')->default(false);
+            $table->decimal('amount', 10, 2)->default(0);
+            $table->decimal('paid_amount', 10, 2)->default(0);
+            $table->string('reason'); // damage, lost, late
+            $table->string('status')->default('pending');
+            $table->integer('days_late')->default(0);
             $table->timestamp('paid_at')->nullable();
+            $table->string('payment_method')->nullable();
+            $table->foreignId('collected_by')->nullable()->constrained('users')->onDelete('set null');
+            $table->text('payment_notes')->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 
@@ -31,4 +37,4 @@ return new class extends Migration
     {
         Schema::dropIfExists('fines');
     }
-};
+}; 

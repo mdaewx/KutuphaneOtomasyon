@@ -75,7 +75,7 @@
                             <td>{{ optional($fine->borrowing)->due_date ? $fine->borrowing->due_date->format('d.m.Y') : '-' }}</td>
                             <td>{{ optional($fine->borrowing)->returned_at ? $fine->borrowing->returned_at->format('d.m.Y') : '-' }}</td>
                             <td class="text-danger font-weight-bold">{{ $fine->days_late }}</td>
-                            <td class="font-weight-bold">{{ number_format($fine->fine_amount, 2) }} TL</td>
+                            <td class="font-weight-bold">{{ number_format($fine->amount, 2) }} TL</td>
                             <td>
                                 @if($fine->paid)
                                     <span class="badge badge-success">Ödendi</span>
@@ -93,7 +93,7 @@
                                     </a>
                                     
                                     @if(!$fine->paid)
-                                    <button type="button" class="btn btn-sm btn-success ml-1 btn-pay-fine" data-toggle="modal" data-target="#payFineModal" data-fine-id="{{ $fine->id }}" data-fine-amount="{{ number_format($fine->fine_amount, 2) }} TL" data-user-name="{{ $fine->user->name }}" data-book-title="{{ $fine->book->title }}">
+                                    <button type="button" class="btn btn-sm btn-success ml-1 btn-pay-fine" data-toggle="modal" data-target="#payFineModal" data-fine-id="{{ $fine->id }}" data-fine-amount="{{ number_format($fine->amount, 2) }} TL" data-user-name="{{ $fine->user->name }}" data-book-title="{{ $fine->book->title }}">
                                         <i class="fas fa-money-bill-wave"></i>
                                     </button>
                                     
@@ -265,15 +265,8 @@
                     </div>
                     
                     <div class="form-group mb-3">
-                        <label for="borrowing_id">İlişkili Ödünç (Opsiyonel)</label>
-                        <select class="form-control" id="borrowing_id" name="borrowing_id">
-                            <option value="">İlişkili Ödünç Yoksa Boş Bırakın</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group mb-3">
-                        <label for="fine_amount">Ceza Tutarı (TL)</label>
-                        <input type="number" class="form-control" id="fine_amount" name="fine_amount" step="0.01" min="0" required>
+                        <label for="amount">Ceza Tutarı (TL)</label>
+                        <input type="number" class="form-control" id="amount" name="amount" step="0.01" min="0" required>
                     </div>
                     
                     <div class="form-group mb-3">
@@ -339,66 +332,6 @@ $(document).ready(function() {
         });
     }
     
-    // Üye seçildiğinde ilgili ödünçleri getir
-    $('#user_id').change(function() {
-        var userId = $(this).val();
-        if (userId) {
-            console.log('Kullanıcı ID seçildi:', userId);
-            
-            $.ajax({
-                url: '/admin/users/' + userId + '/borrowings',
-                type: 'GET',
-                dataType: 'json',
-                success: function(data) {
-                    console.log('Borrowings loaded:', data);
-                    var options = '<option value="">İlişkili Ödünç Yoksa Boş Bırakın</option>';
-                    if (data && data.length > 0) {
-                        $.each(data, function(key, value) {
-                            options += '<option value="' + value.id + '">' + value.book_title + ' (' + value.borrow_date + ')</option>';
-                        });
-                    } else {
-                        options += '<option value="" disabled>Kullanıcının ödünç kaydı bulunamadı</option>';
-                    }
-                    $('#borrowing_id').html(options);
-                },
-                error: function(xhr, status, error) {
-                    console.error('Ödünç yükleme hatası:', error);
-                    console.error('Durum:', status);
-                    console.error('XHR:', xhr.responseText);
-                    alert('Ödünç kayıtları yüklenirken bir hata oluştu.');
-                }
-            });
-        } else {
-            $('#borrowing_id').html('<option value="">İlişkili Ödünç Yoksa Boş Bırakın</option>');
-        }
-    });
-
-    // Ödünç kaydı seçildiğinde kitabı otomatik doldur
-    $('#borrowing_id').change(function() {
-        var borrowingId = $(this).val();
-        if (borrowingId) {
-            $.ajax({
-                url: '/admin/borrowings/' + borrowingId,
-                type: 'GET',
-                dataType: 'json',
-                success: function(data) {
-                    console.log('Borrowing details loaded:', data);
-                    $('#book_id').val(data.book_id);
-                    
-                    // Gecikme varsa hesapla
-                    if (data.is_overdue) {
-                        $('#fine_type').val('late_return');
-                        $('#days_late').val(data.overdue_days);
-                        $('#fine_amount').val(data.potential_fine);
-                    }
-                },
-                error: function(xhr, status, error) {
-                    console.error('Ödünç detayları yükleme hatası:', error);
-                }
-            });
-        }
-    });
-    
     // Ceza türü seçildiğinde önerilen tutarı göster
     $('#fine_type').change(function() {
         var fineType = $(this).val();
@@ -419,7 +352,7 @@ $(document).ready(function() {
         }
         
         if(suggestedAmount > 0) {
-            $('#fine_amount').val(suggestedAmount);
+            $('#amount').val(suggestedAmount);
         }
     });
     
@@ -452,6 +385,34 @@ $(document).ready(function() {
         $("#finesTable tbody tr").filter(function() {
             $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
         });
+    });
+
+    // Üye seçildiğinde kitapları getir
+    $('#user_id').change(function() {
+        var userId = $(this).val();
+        if (userId) {
+            $.ajax({
+                url: '/admin/users/' + userId + '/books',
+                type: 'GET',
+                dataType: 'json',
+                success: function(data) {
+                    var options = '<option value="">Kitap Seçin</option>';
+                    if (data && data.length > 0) {
+                        $.each(data, function(key, value) {
+                            options += '<option value="' + value.id + '">' + value.title + '</option>';
+                        });
+                    } else {
+                        options += '<option value="" disabled>Kullanıcının ödünç aldığı kitap yok</option>';
+                    }
+                    $('#book_id').html(options);
+                },
+                error: function(xhr, status, error) {
+                    $('#book_id').html('<option value="">Kitap Seçin</option>');
+                }
+            });
+        } else {
+            $('#book_id').html('<option value="">Kitap Seçin</option>');
+        }
     });
 
     // Debug bilgisi

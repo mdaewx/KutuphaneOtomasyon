@@ -31,24 +31,27 @@
                     <tr>
                         <td>{{ $user->id }}</td>
                         <td>
-                            <img src="{{ $user->profile_photo ? asset('storage/profiles/'.$user->profile_photo) : 'https://via.placeholder.com/40x40' }}" 
-                                 alt="{{ $user->name }}"
-                                 class="rounded-circle"
-                                 style="width: 40px; height: 40px; object-fit: cover;">
+                            @if($user->profile_photo)
+                                <img src="{{ asset('storage/' . $user->profile_photo) }}" alt="Profil" class="rounded-circle" width="40">
+                            @else
+                                <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                    {{ strtoupper(substr($user->name, 0, 1)) }}
+                                </div>
+                            @endif
                         </td>
-                        <td>{{ $user->name }}</td>
+                        <td>{{ $user->full_name }}</td>
                         <td>{{ $user->email }}</td>
                         <td>
                             @if($user->is_admin)
                                 <span class="badge bg-danger">Yönetici</span>
                             @elseif($user->is_staff)
-                                <span class="badge bg-primary">Personel</span>
+                                <span class="badge bg-primary">Memur</span>
                             @else
                                 <span class="badge bg-success">Kullanıcı</span>
                             @endif
                         </td>
-                        <td>{{ $user->created_at->format('d.m.Y') }}</td>
-                        <td>{{ $user->activeBorrowings()->count() }}</td>
+                        <td>{{ $user->created_at->format('d.m.Y H:i') }}</td>
+                        <td>{{ $user->active_borrowings_count ?? 0 }}</td>
                         <td>
                             <div class="d-flex">
                                 <a href="{{ route('admin.users.show', $user->id) }}" class="btn btn-sm btn-info me-1">
@@ -84,8 +87,12 @@
                                     @method('PUT')
                                     <div class="modal-body">
                                         <div class="mb-3">
-                                            <label class="form-label">Ad Soyad</label>
+                                            <label class="form-label">Ad</label>
                                             <input type="text" class="form-control" name="name" value="{{ $user->name }}" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Soyad</label>
+                                            <input type="text" class="form-control" name="surname" value="{{ $user->surname }}">
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">E-posta</label>
@@ -96,7 +103,7 @@
                                             <div class="row">
                                                 <div class="col-md-4">
                                                     <div class="form-check">
-                                                        <input class="form-check-input" type="radio" name="role" value="admin" id="admin_role_{{ $user->id }}" {{ $user->is_admin ? 'checked' : '' }}>
+                                                        <input class="form-check-input" type="radio" name="user_type" value="admin" id="admin_role_{{ $user->id }}" {{ $user->is_admin ? 'checked' : '' }}>
                                                         <label class="form-check-label" for="admin_role_{{ $user->id }}">
                                                             <span class="badge bg-danger">Yönetici</span>
                                                         </label>
@@ -104,7 +111,7 @@
                                                 </div>
                                                 <div class="col-md-4">
                                                     <div class="form-check">
-                                                        <input class="form-check-input" type="radio" name="role" value="staff" id="staff_role_{{ $user->id }}" {{ $user->is_staff && !$user->is_admin ? 'checked' : '' }}>
+                                                        <input class="form-check-input" type="radio" name="user_type" value="staff" id="staff_role_{{ $user->id }}" {{ !$user->is_admin && $user->is_staff ? 'checked' : '' }}>
                                                         <label class="form-check-label" for="staff_role_{{ $user->id }}">
                                                             <span class="badge bg-primary">Personel</span>
                                                         </label>
@@ -112,7 +119,7 @@
                                                 </div>
                                                 <div class="col-md-4">
                                                     <div class="form-check">
-                                                        <input class="form-check-input" type="radio" name="role" value="user" id="user_role_{{ $user->id }}" {{ !$user->is_admin && !$user->is_staff ? 'checked' : '' }}>
+                                                        <input class="form-check-input" type="radio" name="user_type" value="user" id="user_role_{{ $user->id }}" {{ !$user->is_admin && !$user->is_staff ? 'checked' : '' }}>
                                                         <label class="form-check-label" for="user_role_{{ $user->id }}">
                                                             <span class="badge bg-success">Kullanıcı</span>
                                                         </label>
@@ -129,18 +136,6 @@
                                             <label class="form-label">Şifre Tekrar</label>
                                             <input type="password" class="form-control" name="password_confirmation">
                                         </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Profil Fotoğrafı</label>
-                                            <input type="file" class="form-control" name="profile_photo">
-                                            @if($user->profile_photo)
-                                                <div class="mt-2">
-                                                    <img src="{{ asset('storage/profiles/'.$user->profile_photo) }}" 
-                                                         alt="Mevcut Profil"
-                                                         class="rounded-circle"
-                                                         style="width: 80px; height: 80px; object-fit: cover;">
-                                                </div>
-                                            @endif
-                                        </div>
                                     </div>
                                     <div class="modal-footer">
                                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
@@ -152,22 +147,19 @@
                     </div>
 
                     <!-- Silme Modal -->
-                    <div class="modal fade" id="deleteUserModal{{ $user->id }}" tabindex="-1" aria-labelledby="deleteUserModalLabel{{ $user->id }}" aria-hidden="true">
+                    <div class="modal fade" id="deleteUserModal{{ $user->id }}" tabindex="-1">
                         <div class="modal-dialog">
                             <div class="modal-content">
                                 <div class="modal-header">
-                                    <h5 class="modal-title" id="deleteUserModalLabel{{ $user->id }}">
+                                    <h5 class="modal-title">
                                         <i class="fas fa-trash me-2"></i>
                                         Kullanıcı Sil
                                     </h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                 </div>
                                 <div class="modal-body">
-                                    <p>"{{ $user->name }}" kullanıcısını silmek istediğinizden emin misiniz?</p>
-                                    @if($user->activeBorrowings()->count() > 0)
-                                        <p class="text-danger">Bu kullanıcının {{ $user->activeBorrowings()->count() }} adet aktif ödünç kitabı bulunmaktadır!</p>
-                                    @endif
-                                    <p class="text-danger mb-0">Bu işlem geri alınamaz!</p>
+                                    <p>{{ $user->full_name }} isimli kullanıcıyı silmek istediğinize emin misiniz?</p>
+                                    <p class="text-danger">Bu işlem geri alınamaz!</p>
                                 </div>
                                 <div class="modal-footer">
                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
@@ -202,8 +194,12 @@
                 @csrf
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">Ad Soyad</label>
+                        <label class="form-label">Ad</label>
                         <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Soyad</label>
+                        <input type="text" class="form-control" name="surname">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">E-posta</label>
@@ -214,7 +210,7 @@
                         <div class="row">
                             <div class="col-md-4">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="role" value="admin" id="new_admin_role">
+                                    <input class="form-check-input" type="radio" name="user_type" value="admin" id="new_admin_role">
                                     <label class="form-check-label" for="new_admin_role">
                                         <span class="badge bg-danger">Yönetici</span>
                                     </label>
@@ -222,7 +218,7 @@
                             </div>
                             <div class="col-md-4">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="role" value="staff" id="new_staff_role">
+                                    <input class="form-check-input" type="radio" name="user_type" value="staff" id="new_staff_role">
                                     <label class="form-check-label" for="new_staff_role">
                                         <span class="badge bg-primary">Personel</span>
                                     </label>
@@ -230,7 +226,7 @@
                             </div>
                             <div class="col-md-4">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="role" value="user" id="new_user_role" checked>
+                                    <input class="form-check-input" type="radio" name="user_type" value="user" id="new_user_role" checked>
                                     <label class="form-check-label" for="new_user_role">
                                         <span class="badge bg-success">Kullanıcı</span>
                                     </label>

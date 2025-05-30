@@ -11,8 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Borrowings tablosu zaten 2025_03_22_211919_create_borrowings_table.php migration'ında oluşturulduğu için
-        // bu migration'ı boş bırakıyoruz. Lütfen önce o migration'ı çalıştırın.
+        Schema::table('stocks', function (Blueprint $table) {
+            //
+        });
     }
 
     /**
@@ -20,6 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Boş bırakıldı çünkü gerçek borrowings tablosu işlemi başka bir migration'da
+        Schema::table('stocks', function (Blueprint $table) {
+            //
+        });
     }
 };

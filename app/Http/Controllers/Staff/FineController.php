@@ -15,7 +15,7 @@ class FineController extends Controller
      */
     public function index()
     {
-        $fines = Fine::with(['borrowing.user', 'borrowing.book'])
+        $fines = Fine::with(['user', 'book'])
             ->latest()
             ->get();
 
@@ -25,9 +25,9 @@ class FineController extends Controller
     /**
      * Display detailed information about a fine.
      */
-    public function show($id)
+    public function show(Fine $fine)
     {
-        $fine = Fine::with(['user', 'book'])->findOrFail($id);
+        $fine->load(['user', 'book', 'book.authors']);
         return view('staff.fines.show', compact('fine'));
     }
 
@@ -50,7 +50,7 @@ class FineController extends Controller
         
         $overdueDays = $borrowing->getOverdueDays();
         $fineAmount = $overdueDays * $this->getDailyFineRate();
-        $borrowing->fine_amount = $fineAmount;
+        $borrowing->amount = $fineAmount;
         $borrowing->save();
         
         // Fine tablosuna kayıt ekle
@@ -59,7 +59,7 @@ class FineController extends Controller
             'book_id' => $borrowing->book_id,
             'borrowing_id' => $borrowing->id,
             'days_late' => $overdueDays,
-            'fine_amount' => $fineAmount,
+            'amount' => $fineAmount,
             'paid' => false
         ]);
         
@@ -70,30 +70,36 @@ class FineController extends Controller
     /**
      * Mark a fine as paid.
      */
-    public function markAsPaid($id)
+    public function markAsPaid(Fine $fine)
     {
-        $fine = Fine::findOrFail($id);
-        $fine->paid = true;
-        $fine->paid_at = now();
-        $fine->save();
-        
-        return redirect()->route('staff.fines.index')
-            ->with('success', 'Ceza ödenmiş olarak işaretlendi.');
+        if ($fine->status !== 'pending') {
+            return back()->with('error', 'Bu ceza zaten ödenmiş veya iptal edilmiş.');
+        }
+
+        $fine->update([
+            'status' => 'paid',
+            'paid_at' => now()
+        ]);
+
+        return back()->with('success', 'Ceza ödenmiş olarak işaretlendi.');
     }
 
     /**
      * Forgive a fine.
      */
-    public function forgive($id)
+    public function forgive(Fine $fine)
     {
-        $fine = Fine::findOrFail($id);
-        $fine->fine_amount = 0;
-        $fine->paid = true;
-        $fine->paid_at = now();
-        $fine->save();
-        
-        return redirect()->route('staff.fines.index')
-            ->with('success', 'Ceza affedildi.');
+        if ($fine->status !== 'pending') {
+            return back()->with('error', 'Bu ceza zaten ödenmiş veya iptal edilmiş.');
+        }
+
+        $fine->update([
+            'status' => 'cancelled',
+            'amount' => 0,
+            'paid_at' => now()
+        ]);
+
+        return back()->with('success', 'Ceza affedildi.');
     }
 
     /**

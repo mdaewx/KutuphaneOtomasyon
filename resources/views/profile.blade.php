@@ -13,11 +13,11 @@
                     </div>
                     <h4 class="card-title">{{ Auth::user()->name }}</h4>
                     <p class="text-muted">{{ Auth::user()->email }}</p>
-                    
+
                     @if(Auth::user()->hasRole('staff'))
                     <div class="mt-4">
                         <a href="{{ route('staff.dashboard') }}" class="btn btn-primary btn-lg w-100">
-                            <i class="fas fa-tachometer-alt me-2"></i> Memur Paneline Git
+                            <i class="fas fa-tachometer-alt me-2"></i> Personel Paneline Git
                         </a>
                     </div>
                     @endif
@@ -158,4 +158,4 @@ document.getElementById('profileEditBtn').addEventListener('click', function() {
     modal.show();
 });
 </script>
-@endpush 
+@endpush

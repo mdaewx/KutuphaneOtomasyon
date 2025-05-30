@@ -78,6 +78,18 @@
                             @enderror
                         </div>
 
+                        <div class="mb-3">
+                            <label for="shelf_id" class="form-label">Raf</label>
+                            <select class="form-select" id="shelf_id" name="shelf_id">
+                                <option value="">Raf Seçin</option>
+                                @foreach($shelves as $shelf)
+                                    <option value="{{ $shelf->id }}" {{ $stock->shelf_id == $shelf->id ? 'selected' : '' }}>
+                                        {{ $shelf->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
                         <div class="form-group">
                             <label for="notes">Notlar</label>
                             <textarea name="notes" id="notes" class="form-control @error('notes') is-invalid @enderror" rows="3">{{ old('notes', $stock->notes) }}</textarea>

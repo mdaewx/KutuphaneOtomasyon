@@ -17,7 +17,7 @@ class AdminUserController extends Controller
      */
     public function index(Request $request)
     {
-        $query = User::query()->withCount('borrowings');
+        $query = User::query()->withCount(['borrowings', 'activeBorrowings']);
 
         // Apply search filter
         if ($request->has('search') && !empty($request->search)) {
@@ -30,20 +30,19 @@ class AdminUserController extends Controller
             });
         }
 
-        // Apply role filter
-        if ($request->has('role') && !empty($request->role)) {
-            if ($request->role === 'admin') {
-                $query->where('is_admin', 1);
-            } elseif ($request->role === 'staff') {
-                $query->where('is_staff', 1)->where('is_admin', 0);
-            } else {
-                $query->where('is_admin', 0)->where('is_staff', 0);
-            }
-        }
-
         $users = $query->orderBy('id', 'asc')->paginate(15);
         
         return view('admin.users.index', compact('users'));
+    }
+
+    private function getUserRole($user)
+    {
+        if ($user->is_admin) {
+            return 'Yönetici';
+        } elseif ($user->is_staff) {
+            return 'Personel';
+        }
+        return 'Üye';
     }
 
     /**
@@ -66,7 +65,7 @@ class AdminUserController extends Controller
             'phone' => ['nullable', 'string', 'max:20'],
             'address' => ['nullable', 'string', 'max:500'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'role' => ['required', 'in:user,staff,admin']
+            'user_type' => ['required', 'in:user,staff,admin']
         ]);
 
         $userData = [
@@ -76,9 +75,14 @@ class AdminUserController extends Controller
             'phone' => $request->phone,
             'address' => $request->address,
             'password' => Hash::make($request->password),
-            'is_admin' => $request->role === 'admin' ? 1 : 0,
-            'is_staff' => $request->role === 'staff' ? 1 : 0,
+            'is_admin' => $request->user_type === 'admin',
+            'is_staff' => in_array($request->user_type, ['admin', 'staff'])
         ];
+
+        if ($request->hasFile('profile_photo')) {
+            $path = $request->file('profile_photo')->store('profiles', 'public');
+            $userData['profile_photo'] = $path;
+        }
 
         $user = User::create($userData);
 
@@ -134,7 +138,7 @@ class AdminUserController extends Controller
             'phone' => ['nullable', 'string', 'max:20'],
             'address' => ['nullable', 'string', 'max:500'],
             'password' => ['nullable', 'confirmed', Rules\Password::defaults()],
-            'role' => ['required', 'in:user,staff,admin']
+            'user_type' => ['required', 'in:user,staff,admin']
         ]);
 
         $userData = [
@@ -143,12 +147,22 @@ class AdminUserController extends Controller
             'email' => $request->email,
             'phone' => $request->phone,
             'address' => $request->address,
-            'is_admin' => $request->role === 'admin' ? 1 : 0,
-            'is_staff' => $request->role === 'staff' ? 1 : 0,
+            'is_admin' => $request->user_type === 'admin',
+            'is_staff' => in_array($request->user_type, ['admin', 'staff'])
         ];
 
         if ($request->filled('password')) {
             $userData['password'] = Hash::make($request->password);
+        }
+
+        if ($request->hasFile('profile_photo')) {
+            // Delete old photo if exists
+            if ($user->profile_photo && Storage::disk('public')->exists($user->profile_photo)) {
+                Storage::disk('public')->delete($user->profile_photo);
+            }
+            
+            $path = $request->file('profile_photo')->store('profiles', 'public');
+            $userData['profile_photo'] = $path;
         }
 
         $user->update($userData);
@@ -190,10 +204,11 @@ class AdminUserController extends Controller
         
         $users = \App\Models\User::where(function($query) use ($term) {
             $query->where('name', 'LIKE', "%{$term}%")
+                  ->orWhere('surname', 'LIKE', "%{$term}%")
                   ->orWhere('email', 'LIKE', "%{$term}%");
         })
         ->where('is_admin', 0) // Exclude admin users
-        ->select('id', 'name', 'email')
+        ->select('id', 'name', 'surname', 'email')
         ->limit(10)
         ->get();
         

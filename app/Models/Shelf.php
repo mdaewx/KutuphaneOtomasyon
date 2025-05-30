@@ -12,6 +12,7 @@ class Shelf extends Model
     protected $fillable = [
         'name',
         'shelf_number',
+        'code',
         'description',
         'capacity',
         'location',
@@ -22,6 +23,28 @@ class Shelf extends Model
         'capacity' => 'integer',
         'status' => 'string'
     ];
+
+    /**
+     * Model boot metodu
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($shelf) {
+            if (empty($shelf->shelf_number)) {
+                // En son raf numarasını bul
+                $lastShelf = static::orderBy('id', 'desc')->first();
+                $nextId = $lastShelf ? $lastShelf->id + 1 : 1;
+                $shelf->shelf_number = 'RAF-' . str_pad($nextId, 3, '0', STR_PAD_LEFT);
+            }
+            
+            // Code alanını shelf_number ile aynı yap
+            if (empty($shelf->code)) {
+                $shelf->code = $shelf->shelf_number;
+            }
+        });
+    }
 
     /**
      * Bu rafta bulunan kitaplar

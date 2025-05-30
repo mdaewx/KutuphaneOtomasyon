@@ -13,7 +13,9 @@ class Publisher extends Model
         'name',
         'address',
         'phone',
-        'email'
+        'email',
+        'description',
+        'is_active'
     ];
 
     /**
